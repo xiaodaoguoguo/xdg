@@ -66,13 +66,18 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:n
 svg{display:block}
 
 .app{
-  height:100dvh;
+  height:100%;                 /* 老内核没有 dvh 时的退路 */
+  height:100dvh;               /* 移动端动态视口：躲开地址栏伸缩 */
   max-width:560px;
   margin:0 auto;
   display:flex;
   flex-direction:column;
   gap:clamp(6px,1.4vh,12px);
-  padding:max(8px,env(safe-area-inset-top)) clamp(10px,3vw,18px) max(8px,env(safe-area-inset-bottom));
+  /* 左右也留出刘海安全区（横屏时刘海在侧边） */
+  padding:max(8px,env(safe-area-inset-top))
+          max(clamp(10px,3vw,18px),env(safe-area-inset-right))
+          max(8px,env(safe-area-inset-bottom))
+          max(clamp(10px,3vw,18px),env(safe-area-inset-left));
 }
 
 /* ============================================================
@@ -88,7 +93,7 @@ svg{display:block}
   box-shadow:0 3px 10px rgba(238,138,34,.4), inset 0 -2px 0 rgba(0,0,0,.12);
 }
 .brand b{display:block;font-size:14.5px;letter-spacing:.2px;line-height:1.25;white-space:nowrap}
-.brand small{display:block;font-size:11px;color:var(--text-3);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34vw}
+.brand small{display:block;font-size:11px;color:var(--text-3);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(52vw,320px)}
 .topbtns{display:flex;gap:8px}
 .icon-btn{
   width:38px;height:38px;border-radius:12px;font-size:16px;
@@ -171,8 +176,11 @@ svg{display:block}
     radial-gradient(ellipse 120% 70% at 50% -10%,var(--field-1) 0%,var(--field-2) 48%,var(--field-3) 100%);
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.22), var(--sh-2), inset 0 -18px 34px rgba(50,90,35,.22);
   overflow:hidden;
-  display:grid;place-items:center;
-  padding:clamp(8px,2.4vw,18px);
+  /* ★ 用 flex 居中，不用 grid：.grid 是唯一的网格项时轨道是 auto 尺寸，
+     `width:min(100%,420px)` 里的百分比就成了循环依赖，部分手机内核会直接
+     取 420px 定值 → 九宫格比场地还宽，被 overflow:hidden 裁掉右边一列。 */
+  display:flex;align-items:center;justify-content:center;
+  padding:clamp(6px,2.2vw,16px);
 }
 .stage::after{ /* 草地纹理 */
   content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
@@ -184,8 +192,13 @@ svg{display:block}
 }
 .grid{
   position:relative;z-index:2;
-  display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(4px,1.4vw,10px);
-  width:min(100%,420px);aspect-ratio:1/1;max-height:100%;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  grid-template-rows:repeat(3,1fr);   /* 行高也 1fr：洞由场地同时约束，不会被压扁成扁片 */
+  gap:clamp(4px,1.4vw,10px);
+  flex:0 0 auto;
+  width:100%;max-width:420px;aspect-ratio:1/1;max-height:100%;
+  /* ↑ 只是首帧兜底；真实尺寸由 fitStage() 按实测可用宽高写成 px（见 JS 第 8 节） */
 }
 .fx{
   position:absolute;inset:0;z-index:5;pointer-events:none;
@@ -194,7 +207,8 @@ svg{display:block}
 
 /* 单个洞 */
 .hole{
-  position:relative;aspect-ratio:1/1;
+  position:relative;
+  min-width:0;min-height:0;   /* 不设 aspect-ratio：边长已由 1fr × 1fr 的正方形格子决定 */
   border-radius:18px;
   cursor:pointer;
   -webkit-tap-highlight-color:transparent;
@@ -337,7 +351,10 @@ svg{display:block}
   position:fixed;inset:0;z-index:50;
   display:flex;flex-direction:column;justify-content:flex-start;   /* ★ 关键 */
   overflow-y:auto;overscroll-behavior:contain;
-  padding:max(14px,env(safe-area-inset-top)) 14px max(14px,env(safe-area-inset-bottom));
+  padding:max(14px,env(safe-area-inset-top))
+          max(14px,env(safe-area-inset-right))
+          max(14px,env(safe-area-inset-bottom))
+          max(14px,env(safe-area-inset-left));
   background:rgba(255,247,236,.9);
   backdrop-filter:blur(14px) saturate(1.2);
   opacity:0;visibility:hidden;
@@ -428,6 +445,55 @@ svg{display:block}
   .timer{width:54px;height:54px}
   .timer #uiTime{font-size:17px}
   .res.big .v{font-size:32px}
+}
+
+/* ============================================================
+   ★ 横屏矮屏（手机横过来）：改成「左控制栏 + 右场地」两列
+   竖排放不下 —— 320px 高时顶栏+HUD+进度条+底栏就吃掉 180px，
+   场地只剩一百来像素，九宫格必然溢出屏幕。
+   ============================================================ */
+@media (orientation:landscape) and (max-height:600px){
+  .app{
+    max-width:none;
+    display:grid;
+    grid-template-columns:clamp(146px,32%,264px) minmax(0,1fr);
+    grid-template-rows:auto auto minmax(0,1fr) auto;
+    grid-template-areas:
+      "top    stage"
+      "hud    stage"
+      "diff   stage"
+      "bottom stage";
+    align-content:stretch;
+    gap:clamp(5px,1.7vh,10px) clamp(8px,1.6vw,14px);
+  }
+  .topbar{grid-area:top}
+  .hud{grid-area:hud;padding:6px 10px}
+  .diffbar{grid-area:diff;align-self:center}
+  .stage{grid-area:stage;align-self:stretch}
+  .bottombar{grid-area:bottom;flex-direction:column;align-items:stretch;gap:6px}
+  .pill{text-align:center;padding:7px 10px}
+  .btn{height:38px;padding:0 14px;font-size:13.5px}
+
+  /* 左栏窄：品牌副标题允许折行，分数/连击字号收紧 */
+  .brand small{max-width:none;white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25}
+  .brand b{font-size:13.5px}
+  .brand .logo{width:32px;height:32px;border-radius:10px;font-size:15px}
+  .icon-btn{width:34px;height:34px;border-radius:10px;font-size:15px}
+  .hud-box .k{font-size:10px;letter-spacing:.5px}
+  .hud-box .v{font-size:clamp(15px,4.4vh,21px)}
+  .timer{width:clamp(42px,13vh,56px);height:clamp(42px,13vh,56px)}
+  .timer #uiTime{font-size:clamp(15px,4.6vh,19px)}
+  .diffbar{height:20px}
+  .diffbar-label{font-size:10.5px;letter-spacing:1px}
+}
+/* 横屏更矮（≈320px）：再压一档，保证顶栏+HUD+底栏不把场地挤没 */
+@media (orientation:landscape) and (max-height:400px){
+  .app{gap:5px clamp(8px,1.6vw,14px)}
+  .brand small{font-size:10px}
+  .timer{width:44px;height:44px}
+  .timer #uiTime{font-size:15px}
+  .pill{font-size:11px;padding:6px 8px}
+  .btn{height:34px;font-size:13px}
 }
 </style>
 </head>
@@ -905,18 +971,50 @@ function bump(sel){ const e = $(sel); e.classList.add('bump'); setTimeout(() => 
    ============================================================================ */
 const FX = { parts: [], texts: [], cv: null, c: null, dpr: 1, ro: null };
 
+/* --- 8.1 场地定尺：九宫格必须是「宽、高都放得下」的正方形 -------------------
+   只靠 CSS 定不了：.grid 的百分比宽度在 auto 轨道/循环依赖下会被某些手机内核
+   当成无效值、退回 max-width:420px，于是格子比场地还宽，右边一列被
+   .stage{overflow:hidden} 裁掉（线上实测：场地宽 369px，格子 420px，右边少 55px）。
+   所以这里实测场地的可用宽高，取最小值写成 px。 */
+function fitStage(){
+  const st = $('#stage'), g = $('#grid');
+  if (!st || !g) return;
+  const cs = getComputedStyle(st);
+  const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+  const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+  const availW = st.clientWidth - padX;
+  const availH = st.clientHeight - padY;
+  const size = Math.round(Math.max(120, Math.min(availW, availH, 420)));
+  if (size > 0){
+    /* 四个属性一起 !important 钉死：
+       只写行内 width/height 会被样式表里的 `!important` 规则、以及
+       max-width/max-height 的钳制改回去（实测 max-height:100% 会把正方形压成扁的）。 */
+    g.style.setProperty('width',      size + 'px', 'important');
+    g.style.setProperty('height',     size + 'px', 'important');
+    g.style.setProperty('max-width',  size + 'px', 'important');
+    g.style.setProperty('max-height', size + 'px', 'important');
+  }
+}
+
 function initFX(){
   FX.cv = $('#fx');
   FX.c = FX.cv.getContext('2d');
+  fitStage();
   resizeFX();
   if (window.ResizeObserver){
-    FX.ro = new ResizeObserver(resizeFX);
+    /* 场地一变（旋转、地址栏伸缩、键盘、分栏切换）就重新定尺 */
+    FX.ro = new ResizeObserver(() => { fitStage(); resizeFX(); });
     FX.ro.observe($('#stage'));
   } else {
-    window.addEventListener('resize', resizeFX);
+    window.addEventListener('resize', () => { fitStage(); resizeFX(); });
+    window.addEventListener('orientationchange', () => setTimeout(() => { fitStage(); resizeFX(); }, 220));
   }
+  window.addEventListener('orientationchange', () => setTimeout(fitStage, 220));
+  window.addEventListener('load', fitStage);
+  requestAnimationFrame(fitStage);
 }
 function resizeFX(){
+  fitStage();
   const st = $('#stage');
   const w = st.clientWidth, h = st.clientHeight;
   FX.dpr = Math.min(window.devicePixelRatio || 1, 2);
