@@ -64,6 +64,63 @@
   }
   footer{text-align:center;font-size:12px;color:#a9aeb9;margin-top:28px;line-height:1.7}
   footer span{color:#d3b6c1}
+
+  /* ---------- 麦次元公众号引导标签 ---------- */
+  .mkt-tag{
+    display:block;
+    background:linear-gradient(180deg,#F5FCF7,#EAF7EF);
+    border:1px solid #D7ECDC;border-radius:20px;
+    padding:12px 12px 11px;margin:0 0 18px;
+    box-shadow:0 6px 18px rgba(52,120,78,.09);
+    cursor:pointer;-webkit-tap-highlight-color:transparent;
+    transition:transform .18s ease,box-shadow .18s ease;
+  }
+  .mkt-tag:active{transform:scale(.99)}
+  @media (hover:hover){ .mkt-tag:hover{box-shadow:0 14px 30px rgba(52,120,78,.16)} }
+  .mkt-tag:focus-visible{outline:2px solid #34C86E;outline-offset:2px}
+
+  .mkt-box{
+    display:flex;align-items:center;gap:11px;
+    background:#fff;border-radius:999px;padding:9px 9px 9px 15px;
+    box-shadow:0 0 0 1px #E7F4EB, 0 2px 6px rgba(52,120,78,.08);
+  }
+  .mkt-ico{flex:0 0 auto;width:20px;height:20px;color:#22C55E;display:grid;place-items:center}
+  .mkt-ico svg{width:100%;height:100%}
+  .mkt-name{
+    flex:0 1 auto;min-width:0;
+    font-size:18px;font-weight:800;color:#2B3138;letter-spacing:.03em;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .mkt-btn{
+    flex:0 0 auto;
+    font-size:13.5px;font-weight:800;color:#fff;letter-spacing:.1em;
+    padding:8px 19px;border-radius:999px;
+    background:linear-gradient(180deg,#35CB70,#1FAF59);
+    box-shadow:0 3px 8px rgba(31,175,89,.34), inset 0 -1px 0 rgba(0,0,0,.10);
+  }
+  .mkt-tip{
+    display:block;margin:10px 3px 0;
+    font-size:12.5px;line-height:1.5;color:#7E8C83;letter-spacing:.01em;
+  }
+  .mkt-tip b{color:#17A75A;font-weight:800}
+  @media (max-width:430px){
+    .mkt-box{gap:9px;padding-left:13px}
+    .mkt-name{flex:1 1 auto;font-size:17px}
+    .mkt-btn{font-size:13px;padding:8px 16px}
+    .mkt-tip{margin-top:8px;font-size:12px}
+  }
+
+  .mkt-toast{
+    position:fixed;left:50%;bottom:26px;z-index:99;
+    transform:translate(-50%,16px);
+    background:rgba(34,44,38,.93);color:#fff;
+    font-size:13px;font-weight:600;letter-spacing:.02em;
+    padding:10px 18px;border-radius:999px;white-space:nowrap;
+    box-shadow:0 10px 26px rgba(0,0,0,.22);
+    opacity:0;pointer-events:none;
+    transition:opacity .22s ease,transform .22s ease;
+  }
+  .mkt-toast.on{opacity:1;transform:translate(-50%,0)}
 </style>
 </head>
 <body>
@@ -75,9 +132,24 @@
     <p class="sub">点一下就能玩，不用下载，不用登录</p>
   </header>
 
+  <!-- 麦次元公众号引导标签 -->
+  <div class="mkt-tag" id="mktTag" tabindex="-1" role="button"
+       aria-label="复制公众号名称「麦次元」，去微信搜索关注">
+    <span class="mkt-box">
+      <span class="mkt-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.9" stroke-linecap="round">
+          <circle cx="10.6" cy="10.6" r="6.9"/><path d="M15.7 15.7 20.6 20.6"/>
+        </svg>
+      </span>
+      <span class="mkt-name">麦次元</span>
+      <span class="mkt-btn">搜索</span>
+    </span>
+    <span class="mkt-tip">微信搜索公众号 <b>麦次元</b>，解锁更多可爱的果叽糖蛋</span>
+  </div>
+
   <main>
 
-    <a class="card" href="https://45ba726b684446768129fb9a47fb041e.app.workbuddy.host/%E6%9E%9C%E5%8F%BD%E6%B6%88%E6%B6%88%E4%B9%90.html">
+    <a class="card" href="https://xiaodaoguoguo.github.io/xdg/guoduo-xiaoxiaole.html">
       <span class="badge">三消</span>
       <span class="ico" aria-hidden="true">
         <svg viewBox="0 0 48 48" fill="none">
@@ -150,5 +222,51 @@
   </footer>
 
 </div>
+
+<div class="mkt-toast" id="mktToast" role="status" aria-live="polite"></div>
+
+<script>
+/* 麦次元公众号引导标签：点一下复制公众号名，方便直接去微信粘贴搜索。
+   只做轻交互 —— 不抢键盘焦点（tabindex=-1），不影响页面其它操作。 */
+(function(){
+  var tag = document.getElementById('mktTag');
+  var toast = document.getElementById('mktToast');
+  if (!tag) return;
+  var NAME = '麦次元', timer = null;
+
+  function tip(msg){
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.classList.add('on');
+    clearTimeout(timer);
+    timer = setTimeout(function(){ toast.classList.remove('on'); }, 2000);
+  }
+  function fallbackCopy(text){
+    try{
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    }catch(e){ return false; }
+  }
+  tag.addEventListener('click', function(){
+    var done = function(){ tip('已复制「' + NAME + '」，去微信搜索吧'); };
+    var miss = function(){ tip('去微信搜索公众号「' + NAME + '」'); };
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(NAME).then(done, function(){
+        fallbackCopy(NAME) ? done() : miss();
+      });
+    }else{
+      fallbackCopy(NAME) ? done() : miss();
+    }
+  });
+})();
+</script>
 </body>
 </html>

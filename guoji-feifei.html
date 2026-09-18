@@ -148,6 +148,73 @@ svg{display:block}
 }
 .btn:active{transform:scale(.94)}
 
+/* ============================================================
+   5.5 麦次元公众号引导标签
+   独立占一行，夹在顶栏与画布之间 —— 只吃掉画布外的高度，绝不叠在游戏画面上；
+   tabindex=-1 不进入键盘焦点链，空格/↑ 仍然全部归游戏。
+   ============================================================ */
+.mkt-tag{
+  flex:0 0 auto;display:flex;align-items:center;gap:10px;
+  padding:4px;
+  background:linear-gradient(180deg,#F6FCF8,#EAF7EF);
+  border:1px solid #D9EDDE;border-radius:999px;
+  box-shadow:var(--sh-1);
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+  transition:box-shadow .18s var(--ease-out),transform .18s var(--ease-out);
+}
+.mkt-tag:active{transform:scale(.988)}
+@media (hover:hover){ .mkt-tag:hover{box-shadow:var(--sh-2)} }
+.mkt-tag:focus-visible{outline:2px solid #35CB70;outline-offset:2px}
+.mkt-tag .mkt-box{
+  flex:0 1 auto;min-width:0;
+  display:flex;align-items:center;gap:8px;
+  background:var(--surface);border-radius:999px;padding:4px 4px 4px 11px;
+  box-shadow:0 0 0 1px #E7F4EB, 0 1px 3px rgba(52,120,78,.10);
+}
+.mkt-ico{flex:0 0 auto;width:14px;height:14px;color:#22C55E;display:grid;place-items:center}
+.mkt-ico svg{width:100%;height:100%}
+.mkt-name{
+  flex:0 1 auto;min-width:0;
+  font-size:12.5px;font-weight:800;color:#2B3138;letter-spacing:.02em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.mkt-btn{
+  flex:0 0 auto;font-size:11.5px;font-weight:800;color:#fff;letter-spacing:.06em;
+  padding:5px 14px;border-radius:999px;
+  background:linear-gradient(180deg,#35CB70,#1FAF59);
+  box-shadow:0 2px 6px rgba(31,175,89,.34);
+}
+.mkt-tip{
+  flex:1 1 auto;min-width:0;padding-right:9px;
+  font-size:11.5px;line-height:1.35;color:#7E8C83;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.mkt-tip b{color:#17A75A;font-weight:800}
+@media (max-width:560px){
+  .mkt-tag{flex-wrap:wrap;gap:0;padding:4px 4px 6px;border-radius:20px}
+  .mkt-tag .mkt-box{flex:1 1 100%}
+  .mkt-name{flex:1 1 auto}
+  .mkt-tip{flex:1 1 100%;padding:5px 8px 0;text-align:center;white-space:normal;overflow:visible}
+}
+.mkt-toast{
+  position:fixed;left:50%;bottom:76px;z-index:60;
+  transform:translate(-50%,12px);
+  background:rgba(58,42,22,.93);color:#fff;
+  font-size:13px;font-weight:700;letter-spacing:.02em;
+  padding:9px 17px;border-radius:999px;white-space:nowrap;
+  box-shadow:0 10px 26px rgba(0,0,0,.28);
+  opacity:0;pointer-events:none;
+  transition:opacity .22s,transform .22s;
+}
+.mkt-toast.on{opacity:1;transform:translate(-50%,0)}
+@media (prefers-color-scheme:dark){
+  .mkt-tag{background:linear-gradient(180deg,#22322A,#1C2A23);border-color:#33513F}
+  .mkt-tag .mkt-box{box-shadow:0 0 0 1px #33513F, 0 1px 3px rgba(0,0,0,.35)}
+  .mkt-name{color:#EAF7EE}
+  .mkt-tip{color:#93A89A}
+  .mkt-tip b{color:#4FD98A}
+}
+
 /* 矮屏（手机横过来只剩 320~420px 高）：顶栏/底栏改成浮层，把高度全让给画面。
    ★ 横屏时画布受高度限制，留着常规的上下栏会把它压到 157×280，果叽小得看不清。
    浮层只会落在画布两侧的空档上（画布居中、横向留白很宽），不挡游戏区。 */
@@ -162,6 +229,16 @@ svg{display:block}
   .bottombar{position:absolute;right:10px;bottom:8px;z-index:10}
   .btn{height:36px;font-size:13px;padding:0 16px}
   .stage{height:100%;border-radius:14px}
+  /* 横屏时标签也转为浮层，压在左下角 —— 这里是画布左侧的留白区，不碰游戏画面 */
+  .mkt-tag{
+    position:absolute;left:10px;bottom:8px;z-index:10;
+    flex-wrap:nowrap;gap:8px;max-width:150px;padding:3px;
+  }
+  .mkt-tag .mkt-box{flex:0 0 auto;gap:6px;padding:3px 3px 3px 9px}
+  .mkt-name{flex:0 0 auto;font-size:11.5px}
+  .mkt-ico{width:12px;height:12px}
+  .mkt-btn{font-size:11px;padding:4px 12px}
+  .mkt-tag .mkt-tip{display:none}
 }
 </style>
 </head>
@@ -181,6 +258,21 @@ svg{display:block}
       <a class="icon-btn" href="./" title="返回小游戏目录" aria-label="返回小游戏目录">←</a>
     </div>
   </header>
+
+  <!-- 麦次元公众号引导标签 -->
+  <div class="mkt-tag" id="mktTag" tabindex="-1" role="button"
+       aria-label="复制公众号名称「麦次元」，去微信搜索关注">
+    <span class="mkt-box">
+      <span class="mkt-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.9" stroke-linecap="round">
+          <circle cx="10.6" cy="10.6" r="6.9"/><path d="M15.7 15.7 20.6 20.6"/>
+        </svg>
+      </span>
+      <span class="mkt-name">麦次元</span>
+      <span class="mkt-btn">搜索</span>
+    </span>
+    <span class="mkt-tip">微信搜索公众号 <b>麦次元</b>，解锁更多可爱的果叽糖蛋</span>
+  </div>
 
   <main class="stage" id="stage">
     <canvas id="cv" tabindex="0" role="img"
@@ -899,6 +991,51 @@ window.__guojiFeifei = {
   }
 };
 
+})();
+</script>
+
+<div class="mkt-toast" id="mktToast" role="status" aria-live="polite"></div>
+
+<script>
+/* 麦次元公众号引导标签：点一下复制公众号名，方便直接去微信粘贴搜索。
+   独立脚本、独立提示，不碰游戏状态机；tabindex=-1 不抢键盘焦点。 */
+(function(){
+  var tag = document.getElementById('mktTag');
+  var toast = document.getElementById('mktToast');
+  if (!tag || !toast) return;
+  var NAME = '麦次元', timer = null;
+
+  function tip(msg){
+    toast.textContent = msg;
+    toast.classList.add('on');
+    clearTimeout(timer);
+    timer = setTimeout(function(){ toast.classList.remove('on'); }, 1900);
+  }
+  function fallbackCopy(text){
+    try{
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    }catch(e){ return false; }
+  }
+  tag.addEventListener('click', function(){
+    var done = function(){ tip('已复制「' + NAME + '」，去微信搜索吧'); };
+    var miss = function(){ tip('去微信搜索公众号「' + NAME + '」'); };
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(NAME).then(done, function(){
+        fallbackCopy(NAME) ? done() : miss();
+      });
+    }else{
+      fallbackCopy(NAME) ? done() : miss();
+    }
+  });
 })();
 </script>
 </body>

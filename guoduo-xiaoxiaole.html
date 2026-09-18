@@ -2,14 +2,1493 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>正在跳转...</title>
-<meta http-equiv="refresh" content="0; url=https://45ba726b684446768129fb9a47fb041e.app.workbuddy.host/%E6%9E%9C%E5%8F%BD%E6%B6%88%E6%B6%88%E4%B9%90.html">
-<script>
-window.location.replace("https://45ba726b684446768129fb9a47fb041e.app.workbuddy.host/%E6%9E%9C%E5%8F%BD%E6%B6%88%E6%B6%88%E4%B9%90.html");
-</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#FFF7F7">
+<title>果叽消消乐 · Guojis Tripeaks Match</title>
+<!-- 内联 SVG 图标：浏览器会自动探测 /favicon.ico，不声明就报一个 404，
+     害得「控制台无报错」这条验收永远红着。声明 data URI 即消除。 -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23FFF1F3'/%3E%3Crect x='9' y='9' width='13' height='13' rx='4' fill='%23FFB8BD'/%3E%3Crect x='26' y='9' width='13' height='13' rx='4' fill='%23D0D4F4'/%3E%3Crect x='9' y='26' width='13' height='13' rx='4' fill='%23D0D4F4'/%3E%3Crect x='26' y='26' width='13' height='13' rx='4' fill='%23FFD9A8'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23FFF1F3'/%3E%3Crect x='12' y='12' width='17' height='17' rx='5' fill='%23FFB8BD'/%3E%3Crect x='35' y='12' width='17' height='17' rx='5' fill='%23D0D4F4'/%3E%3Crect x='12' y='35' width='17' height='17' rx='5' fill='%23D0D4F4'/%3E%3Crect x='35' y='35' width='17' height='17' rx='5' fill='%23FFD9A8'/%3E%3C/svg%3E">
+<style>
+/* ============================================================================
+   果叽消消乐 —— 视觉系统
+   方块图案 = 果叽文件夹里的表情（已转静态 PNG，见 assets/）
+   ============================================================================ */
+:root{
+  --bg:#FFF7F7;
+  --panel:#FFFFFF;
+  --panel-2:#FFF5F6;
+  --line:#F2D7DC;
+  --line-strong:#E7C3CB;
+  --ink:#3B2C31;
+  --ink-2:#7A5F67;
+  --ink-3:#A98F97;
+  --accent:#FF6B84;
+  --accent-2:#FFA9B8;
+  --accent-soft:#FFE3E9;
+  --gold:#F5B544;
+  --blue:#5EB8E8;
+  --green:#57C08A;
+  --danger:#E8574F;
+  --radius:14px;
+  --shadow-1:0 1px 2px rgba(150,90,105,.10);
+  --shadow-2:0 5px 14px -5px rgba(150,80,95,.30), 0 2px 4px rgba(150,80,95,.10);
+  --shadow-3:0 16px 34px -12px rgba(130,60,80,.42), 0 4px 12px rgba(130,60,80,.16);
+  /* 方块尺寸由 JS 按屏幕动态写入 */
+  --tile:56px;
+  --slot:7;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Segoe UI",system-ui,sans-serif;
+  background:
+    radial-gradient(1100px 620px at 12% -8%, #FFE7EC 0%, transparent 62%),
+    radial-gradient(900px 560px at 92% 4%, #FFF2E2 0%, transparent 58%),
+    linear-gradient(170deg,var(--bg) 0%, #FFF1F3 45%, #FFEDEF 100%);
+  background-attachment:fixed;
+  color:var(--ink);
+  min-height:100%;
+  overflow:hidden;
+  touch-action:manipulation;
+  user-select:none;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;opacity:.55;z-index:0;
+  background-image:linear-gradient(rgba(255,107,132,.035) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(255,107,132,.035) 1px,transparent 1px);
+  background-size:26px 26px;
+}
+
+/* ---------- 布局骨架：顶栏 / 盘面 / 卡槽 ---------- */
+#app{
+  position:relative;z-index:1;
+  height:100dvh;height:100vh;
+  display:flex;flex-direction:column;
+  max-width:820px;margin:0 auto;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* ---------- 顶栏 ---------- */
+.topbar{
+  flex:none;
+  display:flex;align-items:center;gap:8px;
+  padding:8px 12px;
+  background:rgba(255,255,255,.84);
+  backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+  box-shadow:0 2px 14px -6px rgba(150,90,105,.20);
+  min-width:0;                 /* 允许子项收缩，防止窄屏溢出 */
+  overflow:hidden;
+}
+.brand{
+  display:flex;align-items:center;gap:8px;font-weight:800;font-size:15px;
+  letter-spacing:-.2px;white-space:nowrap;
+  min-width:0;flex:0 1 auto;    /* 可收缩 */
+  overflow:hidden;
+}
+.brand .name{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.brand .logo{
+  width:28px;height:28px;border-radius:9px;flex:none;
+  background:linear-gradient(140deg,#FFD9E0,#FFB3C1);
+  display:grid;place-items:center;font-size:15px;
+  box-shadow:inset 0 0 0 1.5px #fff, var(--shadow-1);
+}
+.brand small{
+  font-weight:600;color:var(--ink-3);font-size:10px;letter-spacing:.3px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto;min-width:0;
+}
+.spacer{flex:1 1 auto;min-width:2px}
+.stats{display:flex;gap:6px;align-items:center;flex:0 0 auto}
+.stat{
+  display:flex;flex-direction:column;align-items:center;
+  padding:3px 8px;border-radius:10px;
+  background:var(--panel-2);border:1px solid var(--line);
+  min-width:44px;flex:0 0 auto;
+}
+.stat b{font-size:14px;line-height:1.15;font-variant-numeric:tabular-nums}
+.stat span{font-size:9px;color:var(--ink-3);font-weight:600;letter-spacing:.3px}
+.stat.hot b{color:var(--accent)}
+.iconbtn{
+  width:34px;height:34px;flex:none;border:1px solid var(--line);border-radius:10px;
+  background:var(--panel);color:var(--ink-2);cursor:pointer;
+  display:grid;place-items:center;font-size:15px;
+  box-shadow:var(--shadow-1);transition:transform .12s,background .12s;
+}
+.iconbtn:hover{background:var(--accent-soft)}
+.iconbtn:active{transform:scale(.93)}
+
+/* 关卡进度条 */
+.progress{
+  flex:none;height:4px;background:var(--accent-soft);position:relative;overflow:hidden;
+}
+.progress i{
+  position:absolute;inset:0 auto 0 0;width:0%;
+  background:linear-gradient(90deg,var(--accent),var(--gold));
+  transition:width .35s cubic-bezier(.4,0,.2,1);
+}
+
+/* ---------- 麦次元公众号引导标签 ----------
+   落位在顶栏与进度条之间的独立一行：常驻可见，只挤压盘面高度、不覆盖盘面与卡槽；
+   tabindex=-1 保证不进入键盘焦点链，空格/方向键仍全部交给游戏。 */
+.mkt-tag{
+  flex:none;display:flex;align-items:center;gap:10px;
+  margin:7px 12px 1px;padding:4px;
+  background:linear-gradient(180deg,#F6FCF8,#EAF7EF);
+  border:1px solid #D9EDDE;border-radius:999px;
+  box-shadow:0 2px 9px -3px rgba(52,120,78,.30);
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+  transition:box-shadow .18s,transform .18s;
+}
+.mkt-tag:active{transform:scale(.988)}
+@media (hover:hover){ .mkt-tag:hover{box-shadow:0 6px 16px -4px rgba(52,120,78,.42)} }
+.mkt-tag:focus-visible{outline:2px solid #35CB70;outline-offset:2px}
+.mkt-tag .mkt-box{
+  flex:0 1 auto;min-width:0;
+  display:flex;align-items:center;gap:8px;
+  background:#fff;border-radius:999px;padding:4px 4px 4px 11px;
+  box-shadow:0 0 0 1px #E7F4EB, 0 1px 3px rgba(52,120,78,.10);
+}
+.mkt-ico{flex:0 0 auto;width:14px;height:14px;color:#22C55E;display:grid;place-items:center}
+.mkt-ico svg{width:100%;height:100%}
+.mkt-name{
+  flex:0 1 auto;min-width:0;
+  font-size:12.5px;font-weight:800;color:#2B3138;letter-spacing:.02em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.mkt-btn{
+  flex:0 0 auto;font-size:11.5px;font-weight:800;color:#fff;letter-spacing:.06em;
+  padding:5px 14px;border-radius:999px;
+  background:linear-gradient(180deg,#35CB70,#1FAF59);
+  box-shadow:0 2px 6px rgba(31,175,89,.34);
+}
+.mkt-tip{
+  flex:1 1 auto;min-width:0;padding-right:9px;
+  font-size:11.5px;line-height:1.35;color:#7E8C83;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.mkt-tip b{color:#17A75A;font-weight:800}
+/* 窄屏（手机竖屏）：单行放不下，改成"白胶囊占满 + 提示文字另起一行居中"，信息不丢且更醒目 */
+@media (max-width:560px){
+  .mkt-tag{flex-wrap:wrap;gap:0;padding:4px 4px 6px;border-radius:20px}
+  .mkt-tag .mkt-box{flex:1 1 100%}
+  .mkt-name{flex:1 1 auto}
+  .mkt-tip{flex:1 1 100%;padding:5px 8px 0;text-align:center;white-space:normal;overflow:visible}
+}
+/* 矮屏横屏（通常只剩 320~430px 高，盘面本就吃紧）：回到单行紧凑形态，
+   提示文字让位给盘面高度，标签本身依然完整可读可点 */
+@media (orientation:landscape) and (max-height:520px){
+  .mkt-tag{flex-wrap:nowrap;gap:8px;margin:4px 10px 0;padding:3px 3px 3px 4px;border-radius:999px;
+           align-self:flex-start;width:fit-content;max-width:calc(100% - 20px)}
+  .mkt-tag .mkt-box{flex:0 1 auto;gap:6px;padding:3px 3px 3px 9px}
+  .mkt-name{flex:0 0 auto;font-size:11.5px}
+  .mkt-ico{width:12px;height:12px}
+  .mkt-btn{font-size:11px;padding:4px 12px}
+  .mkt-tag .mkt-tip{display:none}
+}
+
+/* ---------- 盘面 ---------- */
+.board-wrap{
+  flex:1 1 auto;position:relative;min-height:0;
+  display:grid;place-items:center;
+  padding:10px 8px;
+  overflow:hidden;              /* 兜底：盘面绝不溢出到卡槽之上 */
+}
+#board{
+  position:relative;
+  transform-origin:center center;
+  max-width:100%;
+  max-height:100%;
+}
+/* 单个方块 */
+.tile{
+  position:absolute;
+  width:var(--tile);height:var(--tile);
+  padding:0;border:0;background:none;
+  cursor:pointer;
+  transition:left .16s cubic-bezier(.34,1.3,.64,1),
+             top  .16s cubic-bezier(.34,1.3,.64,1),
+             opacity .2s, filter .18s;
+  will-change:left,top,transform;
+}
+.tile .face{
+  display:block;                 /* span 必须转 block，否则宽高不生效、背景图不渲染 */
+  width:100%;height:100%;border-radius:11px;position:relative;
+  background-color:#fff;
+  background-image:var(--img);
+  background-size:contain;
+  background-position:center;
+  background-repeat:no-repeat;
+  box-shadow:
+    inset 0 0 0 1.5px #fff,
+    0 0 0 1px rgba(190,140,155,.35),
+    var(--shadow-2);
+  transition:transform .14s cubic-bezier(.34,1.4,.64,1), box-shadow .14s;
+}
+/* 被压住时压暗 + 降饱和，一眼能看出哪块能点 */
+.tile.locked{cursor:not-allowed}
+.tile.locked .face{
+  filter:brightness(.62) saturate(.45) blur(.4px);
+  box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.5), 0 0 0 1px rgba(190,140,155,.28), var(--shadow-1);
+}
+.tile:not(.locked):hover .face{transform:translateY(-2px) scale(1.04)}
+.tile:not(.locked):active .face{transform:scale(.9)}
+/* 层数角标 */
+.tile .dep{
+  position:absolute;right:-3px;top:-3px;
+  min-width:15px;height:15px;padding:0 3px;border-radius:8px;
+  background:var(--ink);color:#fff;font-size:9px;font-weight:700;
+  display:grid;place-items:center;line-height:1;
+  box-shadow:0 1px 4px rgba(0,0,0,.28);
+  opacity:0;transition:opacity .2s;
+}
+.board-wrap.show-depth .tile .dep{opacity:1}
+/* 提示高亮 */
+.tile.hint .face{
+  animation:hintPulse .7s ease-in-out 3;
+  box-shadow:0 0 0 3px var(--gold), var(--shadow-2);
+}
+@keyframes hintPulse{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.12)}
+}
+
+/* 落格动画 */
+.tile.fly{pointer-events:none;transition:none}
+.tile.popping{animation:pop .3s ease-out forwards}
+@keyframes pop{
+  0%{transform:scale(1);opacity:1}
+  40%{transform:scale(1.3);opacity:1;filter:brightness(1.5)}
+  100%{transform:scale(.1) rotate(20deg);opacity:0}
+}
+
+/* ---------- 卡槽 ---------- */
+.dock-area{
+  flex:none;
+  padding:8px 12px calc(10px + env(safe-area-inset-bottom));
+  background:rgba(255,255,255,.84);
+  backdrop-filter:blur(14px);
+  border-top:1px solid var(--line);
+  box-shadow:0 -3px 16px -8px rgba(150,90,105,.28);
+}
+.dock-head{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:6px;font-size:10px;font-weight:700;color:var(--ink-3);letter-spacing:.4px;
+}
+.dock-head .warn{color:var(--danger);opacity:0;transition:opacity .2s}
+.dock-head .warn.on{opacity:1}
+#dock{
+  display:flex;gap:5px;justify-content:center;
+}
+.slot{
+  flex:1 1 0;max-width:64px;aspect-ratio:1;
+  border-radius:11px;
+  border:1.5px dashed var(--line-strong);
+  background:var(--panel-2);
+  position:relative;
+  display:grid;place-items:center;
+  transition:border-color .2s, background .2s;
+}
+.slot.filled{border-style:solid;border-color:transparent;background:transparent}
+.slot .face{
+  display:block;
+  width:100%;height:100%;border-radius:11px;
+  background-color:#fff;background-image:var(--img);
+  background-size:contain;background-position:center;background-repeat:no-repeat;
+  box-shadow:inset 0 0 0 1.5px #fff, 0 0 0 1px rgba(190,140,155,.4), var(--shadow-2);
+  animation:dropIn .22s cubic-bezier(.34,1.5,.64,1);
+}
+@keyframes dropIn{
+  0%{transform:scale(.5) translateY(-14px);opacity:.2}
+  100%{transform:scale(1) translateY(0);opacity:1}
+}
+.slot .face.popping{animation:pop .3s ease-out forwards}
+
+/* ---------- 遮罩 / 弹窗 ---------- */
+.overlay{
+  position:fixed;inset:0;z-index:50;
+  display:none;place-items:center;
+  padding:20px;
+  background:rgba(60,36,44,.42);
+  backdrop-filter:blur(6px);
+  animation:fadeIn .2s;
+}
+.overlay.on{display:grid}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.dialog{
+  width:100%;max-width:360px;
+  background:var(--panel);border-radius:20px;
+  padding:22px 20px 18px;
+  box-shadow:var(--shadow-3);
+  border:1px solid var(--line);
+  animation:riseIn .28s cubic-bezier(.34,1.3,.64,1);
+  max-height:88dvh;overflow-y:auto;
+}
+@keyframes riseIn{from{transform:translateY(18px) scale(.96);opacity:0}to{transform:none;opacity:1}}
+.dialog h2{
+  font-size:20px;font-weight:800;text-align:center;margin-bottom:4px;
+  letter-spacing:-.3px;
+}
+.dialog .sub{
+  text-align:center;font-size:12px;color:var(--ink-3);margin-bottom:16px;line-height:1.6;
+}
+.dialog .hero{
+  width:76px;height:76px;margin:0 auto 12px;display:block;
+  background-size:contain;background-position:center;background-repeat:no-repeat;
+  animation:heroFloat 2.4s ease-in-out infinite;
+}
+@keyframes heroFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.btnrow{display:flex;flex-direction:column;gap:9px;margin-top:6px}
+.btn{
+  border:0;border-radius:13px;padding:13px 16px;
+  font-size:15px;font-weight:800;font-family:inherit;
+  cursor:pointer;letter-spacing:.2px;
+  transition:transform .12s, filter .12s;
+}
+.btn:active{transform:scale(.96)}
+.btn.primary{
+  background:linear-gradient(140deg,var(--accent),#FF8CA3);
+  color:#fff;box-shadow:0 6px 16px -6px rgba(255,107,132,.7);
+}
+.btn.primary:hover{filter:brightness(1.05)}
+.btn.ghost{
+  background:var(--panel-2);color:var(--ink-2);
+  border:1px solid var(--line-strong);
+}
+.btn.ghost:hover{background:var(--accent-soft)}
+.btn.warn{background:#FFF0EF;color:var(--danger);border:1px solid #F8CFCC}
+
+/* 结果统计 */
+.result-stats{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
+  margin:14px 0 6px;
+}
+.result-stats div{
+  text-align:center;padding:9px 4px;border-radius:11px;
+  background:var(--panel-2);border:1px solid var(--line);
+}
+.result-stats b{display:block;font-size:17px;font-variant-numeric:tabular-nums}
+.result-stats span{font-size:9px;color:var(--ink-3);font-weight:700;letter-spacing:.3px}
+
+/* 关卡选择网格 */
+.lv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:6px 0 4px}
+.lv{
+  padding:12px 6px;border-radius:13px;cursor:pointer;font-family:inherit;
+  background:var(--panel-2);border:1.5px solid var(--line);
+  transition:transform .12s, border-color .15s, background .15s;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+}
+.lv:active{transform:scale(.95)}
+.lv .n{font-size:19px;font-weight:800}
+.lv .d{font-size:9px;color:var(--ink-3);font-weight:700}
+.lv.open{border-color:var(--accent-2)}
+.lv.open:hover{background:var(--accent-soft);border-color:var(--accent)}
+.lv.open .n{color:var(--accent)}
+.lv.locked{opacity:.42;cursor:not-allowed}
+.lv.done{border-color:#BFE8D2;background:#F3FBF6}
+.lv.done .n{color:var(--green)}
+
+/* 图鉴 */
+.gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:4px 0}
+.gallery figure{text-align:center}
+.gallery .thumb{
+  width:100%;aspect-ratio:1;border-radius:11px;
+  background:#fff center/contain no-repeat;
+  box-shadow:inset 0 0 0 1.5px #fff, 0 0 0 1px var(--line), var(--shadow-1);
+}
+.gallery figcaption{font-size:9px;color:var(--ink-3);margin-top:4px;font-weight:600;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* 提示条 */
+#toast{
+  position:fixed;left:50%;bottom:calc(112px + env(safe-area-inset-bottom));
+  transform:translate(-50%,10px);
+  background:rgba(59,44,49,.93);color:#fff;
+  padding:9px 16px;border-radius:999px;font-size:13px;font-weight:700;
+  z-index:60;opacity:0;pointer-events:none;
+  transition:opacity .22s, transform .22s;
+  box-shadow:0 8px 22px -8px rgba(0,0,0,.6);
+  white-space:nowrap;
+}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* 飘分 */
+.float-score{
+  position:fixed;z-index:61;pointer-events:none;
+  font-size:19px;font-weight:800;color:var(--gold);
+  text-shadow:0 2px 8px rgba(255,255,255,.9);
+  animation:floatUp .8s ease-out forwards;
+}
+@keyframes floatUp{
+  0%{transform:translate(-50%,0) scale(.6);opacity:0}
+  25%{transform:translate(-50%,-12px) scale(1.15);opacity:1}
+  100%{transform:translate(-50%,-52px) scale(.95);opacity:0}
+}
+
+/* 加载遮罩 */
+#loader{
+  position:fixed;inset:0;z-index:99;display:grid;place-items:center;
+  background:var(--bg);transition:opacity .35s;
+}
+#loader.off{opacity:0;pointer-events:none}
+#loader .box{text-align:center}
+#loader .spin{
+  width:44px;height:44px;border-radius:50%;
+  border:3px solid var(--accent-soft);border-top-color:var(--accent);
+  margin:0 auto 14px;animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loader p{font-size:13px;color:var(--ink-3);font-weight:700}
+
+/* 窄屏微调：优先保品牌名与统计，关卡名可省 */
+@media (max-width:430px){
+  .brand small{display:none}
+  .brand .name{font-size:14px}
+}
+@media (max-width:380px){
+  :root{--radius:12px}
+  .stat{min-width:40px;padding:2px 6px}
+  .stat b{font-size:13px}
+  .iconbtn{width:32px;height:32px}
+  #toast{font-size:12px;bottom:calc(100px + env(safe-area-inset-bottom))}
+}
+/* 横屏矮屏：顶栏与卡槽收紧，把高度让给盘面 */
+@media (max-height:560px){
+  .topbar{padding:5px 10px}
+  .brand{font-size:13px}
+  .brand small{display:none}
+  .dock-area{padding:5px 10px calc(6px + env(safe-area-inset-bottom))}
+  .dock-head{display:none}
+  .stats .stat span{display:none}
+}
+</style>
 </head>
 <body>
-<p>正在跳转，请稍候…</p>
+
+<div id="app">
+  <!-- 顶栏 -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">🍊</span>
+      <span class="name">果叽消消乐</span>
+      <small id="lvLabel">第 1 关</small>
+    </div>
+    <div class="spacer"></div>
+    <div class="stats">
+      <div class="stat hot"><b id="sRemain">0</b><span>剩余</span></div>
+      <div class="stat"><b id="sScore">0</b><span>得分</span></div>
+    </div>
+    <button class="iconbtn" id="btnLevels" title="选择关卡">☰</button>
+    <button class="iconbtn" id="btnRestart" title="重开本关">↻</button>
+  </header>
+
+  <!-- 麦次元公众号引导标签 -->
+  <div class="mkt-tag" id="mktTag" tabindex="-1" role="button"
+       aria-label="复制公众号名称「麦次元」，去微信搜索关注">
+    <span class="mkt-box">
+      <span class="mkt-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.9" stroke-linecap="round">
+          <circle cx="10.6" cy="10.6" r="6.9"/><path d="M15.7 15.7 20.6 20.6"/>
+        </svg>
+      </span>
+      <span class="mkt-name">麦次元</span>
+      <span class="mkt-btn">搜索</span>
+    </span>
+    <span class="mkt-tip">微信搜索公众号 <b>麦次元</b>，解锁更多可爱的果叽糖蛋</span>
+  </div>
+
+  <div class="progress"><i id="pbar"></i></div>
+
+  <!-- 盘面 -->
+  <main class="board-wrap" id="boardWrap">
+    <div id="board"></div>
+  </main>
+
+  <!-- 卡槽 -->
+  <footer class="dock-area">
+    <div class="dock-head">
+      <span>卡槽 · 集齐 3 个相同果叽自动消除</span>
+      <span class="warn" id="dockWarn">⚠ 卡槽快满了！</span>
+    </div>
+    <div id="dock"></div>
+  </footer>
+</div>
+
+<!-- 弹窗 -->
+<div class="overlay" id="overlay">
+  <div class="dialog" id="dialog"></div>
+</div>
+
+<div id="toast"></div>
+
+<!-- 加载 -->
+<div id="loader">
+  <div class="box">
+    <div class="spin"></div>
+    <p>果叽们正在搬砖…</p>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================================
+   果叽消消乐 —— 核心逻辑
+   ---------------------------------------------------------------------------
+   【游戏模型】
+     · 盘面 = 多层堆叠的方块（tile）。每块 = { id, type, layer, x, y }
+     · 层级 l 的方块只有在其矩形覆盖范围内、layer > l 的方块被清空后，才「可点」
+     · 点击可点方块 → 飞入卡槽（dock，共 7 格）
+     · 卡槽中同图案满 3 个 → 自动消除 + 加分
+     · 卡槽满 7 个且无三消 → 失败；盘面清空 → 过关
+
+   【可解性保证 —— 关键】
+     不能纯随机撒块，否则必然出现死局。这里用「逆向构造法」：
+       1. 先按终局（全空）倒推，逐组取 3 个同图案的块
+       2. 每组 3 块被分配到「互不遮挡」的位置（不同层或同层不重叠区）
+       3. 保证存在一个点击顺序，能把这 3 块依次取出 → 三消成立
+     于是每关都数学可解，且难度由图案种类 / 层数 / 块数控制。
+   ========================================================================== */
+
+/* ---------- 1. 素材清单（换表情只需改这里） ---------- */
+const IMG_DIR = 'assets/';                 // 与本文件同级的子目录，相对路径引用
+const ALL_FACES = [
+  { key:'peach',  file:'peach.png',  name:'果叽冰淇淋' },
+  { key:'duck',   file:'duck.png',   name:'一鸭一鸭哟' },
+  { key:'ice',    file:'ice.png',    name:'我来了'     },
+  { key:'heart',  file:'heart.png',  name:'要这个'     },
+  { key:'miss',   file:'miss.png',   name:'记得回我'   },
+  { key:'sprout', file:'sprout.png', name:'探头果叽'   },
+  { key:'dress',  file:'dress.png',  name:'没衣服穿'   },
+  { key:'anger',  file:'anger.png',  name:'投降降'     },
+  { key:'relax',  file:'relax.png',  name:'随缘吧'     },
+  { key:'music',  file:'music.png',  name:'听音乐'     },
+  { key:'book',   file:'book.png',   name:'看书'       },
+  { key:'pat',    file:'pat.png',    name:'拍3拍你'    },
+  { key:'shy',    file:'shy.png',    name:'害羞果叽'   },
+];
+const faceOf = key => ALL_FACES.find(f => f.key === key) || ALL_FACES[0];
+const urlOf  = key => IMG_DIR + faceOf(key).file;
+
+/* ---------- 2. 关卡配置（渐进式 6 关） ----------
+   types   : 图案种类数（决定卡槽凑对的难度）
+   triples : 三元组数量 → 总块数 = triples × 3
+   layers  : 堆叠层数（层数越多，遮挡越复杂）
+   spread  : 上层网格相对下层的缩放（<1 形成金字塔；越接近 1 越松散）
+   网格大小由「目标密度」在 buildLevel 里自动反推，不需要手写。
+*/
+const LEVELS = [
+  { id:1, name:'热身',   types:3, triples:4,  layers:2, spread:0.85 },
+  { id:2, name:'小试',   types:4, triples:6,  layers:3, spread:0.88 },
+  { id:3, name:'上手',   types:5, triples:8,  layers:3, spread:0.92 },
+  { id:4, name:'进阶',   types:6, triples:11, layers:4, spread:0.95 },
+  { id:5, name:'烧脑',   types:7, triples:14, layers:5, spread:0.98 },
+  { id:6, name:'果叽大师',types:8, triples:18, layers:6, spread:1.00 },
+];
+
+/* ---------- 3. 全局状态 ---------- */
+const SLOT_MAX = 7;
+const G = {
+  level: 1,
+  tiles: [],          // 全部方块
+  dock: [],           // 卡槽中的方块
+  score: 0,
+  total: 0,           // 本关总块数
+  cleared: 0,         // 已消除块数
+  busy: false,        // 动画锁
+  tile: 56,           // 当前方块像素尺寸
+  maxLayer: 1,        // 本关最大层数（布局算尺寸用）
+  unlocked: 1,        // 已解锁关卡数
+  done: {},           // 已通关关卡 { lv: bestScore }
+  lockInput: false,
+};
+
+/* ---------- 4. 工具 ---------- */
+const $ = id => document.getElementById(id);
+const boardEl = $('board'), boardWrap = $('boardWrap'), dockEl = $('dock');
+const overlay = $('overlay'), dialog = $('dialog'), toastEl = $('toast');
+
+function toast(msg, ms) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('on');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => toastEl.classList.remove('on'), ms || 1500);
+}
+
+function floatScore(x, y, text) {
+  const d = document.createElement('div');
+  d.className = 'float-score';
+  d.textContent = text;
+  d.style.left = x + 'px';
+  d.style.top = y + 'px';
+  document.body.appendChild(d);
+  setTimeout(() => d.remove(), 820);
+}
+
+function loadProgress() {
+  try {
+    const raw = localStorage.getItem('guoji_match_progress');
+    if (raw) {
+      const p = JSON.parse(raw);
+      G.unlocked = Math.min(LEVELS.length, Math.max(1, p.unlocked || 1));
+      G.done = p.done || {};
+    }
+  } catch (e) { /* 隐私模式等，忽略 */ }
+}
+function saveProgress() {
+  try {
+    localStorage.setItem('guoji_match_progress',
+      JSON.stringify({ unlocked: G.unlocked, done: G.done }));
+  } catch (e) {}
+}
+
+/* ---------- 5. 关卡生成（保证可解） ---------- */
+/**
+ * 生成一层的落点坐标。
+ * grid = 该层网格边长；count = 需要几个落点。
+ *
+ * 【为什么用「中心聚集」而不是均匀铺开】
+ *   均匀撒点会让方块彼此几乎不重叠 → 开局大部分块都能点 → 失去多层堆叠的乐趣。
+ *   这里用加权采样：以网格中心为原点，距离越近权重越高，配合随机性，
+ *   让落点自然聚成一堆，形成真实的层间遮挡。
+ *   注意：聚拢只改变「位置」，不影响可解性 ——
+ *        可解性由 buildLevel 的逆向构造（同组 3 块分散到不同层）保证。
+ */
+function layerSlots(rnd, grid, count) {
+  const c = (grid - 1) / 2;
+  const pool = [];
+  for (let x = 0; x < grid; x++) {
+    for (let y = 0; y < grid; y++) {
+      // 切比雪夫距离归一化：0 = 正中，1 = 最外圈
+      const d = Math.max(Math.abs(x - c), Math.abs(y - c)) / (c || 1);
+      // 中心权重高（幂衰减）；保底 14% 避免外圈完全空置
+      const w = 0.14 + 0.86 * Math.pow(1 - d, 1.7);
+      pool.push({ x, y, w });
+    }
+  }
+  const out = [];
+  const n = Math.min(count, pool.length);
+  for (let i = 0; i < n; i++) {
+    let total = 0;
+    for (const p of pool) total += p.w;
+    let r = rnd() * total;
+    let idx = pool.length - 1;
+    for (let k = 0; k < pool.length; k++) {
+      r -= pool[k].w;
+      if (r <= 0) { idx = k; break; }
+    }
+    out.push({ x: pool[idx].x, y: pool[idx].y });
+    pool.splice(idx, 1);
+  }
+  return out;
+}
+
+/**
+ * 核心：构造一关。
+ * 思路 —— 逆向构造：
+ *   把「每 3 块同图案」视作一个 triple。逐个分配 triple 时，
+ *   在「当前层槽位」里挑 3 个互不重叠的落点（优先跨层分散），
+ *   这样从最上层往下点击时，这 3 块一定能被先后取出并三消。
+ */
+function buildLevel(levelIdx) {
+  const cfg = LEVELS[Math.min(levelIdx, LEVELS.length - 1)];
+  const rnd = makeRng(levelIdx * 7919 + 20260915);
+
+  const tileCount = cfg.triples * 3;
+  const types = ALL_FACES.slice(0, cfg.types).map(f => f.key);
+
+  // ---- 1) 先定每层块数，再按块数反推网格大小 ----
+  // 关键一：分配前必须知道每层真实可用槽位数，否则上层槽位会先被抽干，
+  //        导致三元组循环提前中断、总块数不足（这就是之前 L3/L4 少 3 块的原因）。
+  // 关键二：网格不能太大，否则方块撒得太开、彼此不遮挡，
+  //        就失去了多层堆叠的乐趣。这里按「目标密度」反推网格边长。
+
+  // 先算各层块数（底层多、上层少 → 金字塔）
+  const layerCount = new Array(cfg.layers).fill(0);
+  const minPer = 3;
+  for (let i = 0; i < cfg.layers; i++) layerCount[i] = minPer;
+  let left = tileCount - minPer * cfg.layers;
+  if (left < 0) {                       // 块数太少，从头均分
+    left = tileCount;
+    for (let i = 0; i < cfg.layers; i++) {
+      const give = Math.min(minPer, left);
+      layerCount[i] = give; left -= give;
+    }
+    left = 0;
+  }
+  const weights = [];
+  for (let i = 0; i < cfg.layers; i++) weights.push(cfg.layers - i);
+  const wsum = weights.reduce((a, b) => a + b, 0) || 1;
+  for (let i = 0; i < cfg.layers && left > 0; i++) {
+    const target = Math.round(tileCount * weights[i] / wsum);
+    const give = Math.max(0, Math.min(target - layerCount[i], left));
+    layerCount[i] += give; left -= give;
+  }
+  // 余量从底层往上补
+  for (let i = 0; i < cfg.layers && left > 0; i++) {
+    const give = Math.max(0, Math.min(left, Math.ceil(tileCount / cfg.layers)));
+    layerCount[i] += give; left -= give;
+  }
+
+  // 按密度反推每层网格：目标「占用率」约 45%（既紧密又不会挤到无解）
+  const DENSITY = 0.45;
+  const layers = [];
+  for (let l = 0; l < cfg.layers; l++) {
+    const need = layerCount[l];
+    const side = Math.max(3, Math.ceil(Math.sqrt(need / DENSITY)));
+    // 上层网格略小一点（配合 spread），但不得小于 3
+    const grid = Math.max(3, Math.round(side * cfg.spread));
+    layers.push({
+      l,
+      grid,
+      cap: grid * grid,
+    });
+  }
+
+  // 若某层容量不足，等比放大该层网格
+  for (const L of layers) {
+    let guard = 0;
+    while (L.cap < layerCount[L.l] && guard++ < 40) {
+      L.grid += 1;
+      L.cap = L.grid * L.grid;
+    }
+  }
+
+  // 生成落点（中心聚集采样）
+  for (const L of layers) {
+    L.slots = layerSlots(rnd, L.grid, layerCount[L.l]);
+    L.used = 0;
+  }
+
+  // ---- 2) 逆向构造：逐个三元组取 3 个分散落点 ----
+  const tiles = [];
+  let uid = 0;
+  let triplesLeft = cfg.triples;
+  let tIdx = 0;
+
+  while (triplesLeft > 0) {
+    // 图案轮转分配，保证每种图案都被用上且数量相等
+    const type = types[tIdx % types.length];
+    tIdx++;
+
+    let picks = pickSpreadSlots(layers, 3);
+
+    if (picks.length < 3) {
+      // 跨层凑不齐 → 放宽为「任意可用槽位」（同层允许相邻，仍不重叠）
+      picks = pickAnySlots(layers, 3);
+    }
+    if (picks.length < 3) {
+      // 真正枯竭（配置容量不足）→ 停止，后面会触发校验告警
+      console.warn('[buildLevel] 槽位枯竭，第 ' + (cfg.triples - triplesLeft + 1) + ' 组未放置');
+      break;
+    }
+    for (const p of picks) {
+      tiles.push({ id: uid++, type, layer: p.L.l, x: p.s.x, y: p.s.y });
+    }
+    triplesLeft--;
+  }
+
+  // ---- 3) 自检：块数必须是 3 的倍数，且每种图案数量是 3 的倍数 ----
+  if (tiles.length % 3 !== 0) console.warn('[buildLevel] 总块数非 3 的倍数:', tiles.length);
+
+  return { tiles, cfg };
+}
+
+/** 让同一 triple 的 3 块尽量分散到不同层（不同层互不遮挡 → 不会互相叠死） */
+function pickSpreadSlots(layers, n) {
+  const usable = layers.filter(L => L.used < L.slots.length);
+  if (!usable.length) return [];
+
+  // 打乱层顺序，让分布随机
+  const order = usable.slice();
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd_uniform() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+
+  const picks = [];
+  const takenByLayer = new Map();      // layer -> 本组已占用坐标
+
+  for (const L of order) {
+    if (picks.length >= n) break;
+    const taken = takenByLayer.get(L.l) || [];
+    // 在本层剩余槽位里找 1 个与本组已选点不重叠的
+    let found = -1;
+    for (let k = L.used; k < L.slots.length; k++) {
+      const s = L.slots[k];
+      if (!taken.some(t => t.x === s.x && t.y === s.y)) { found = k; break; }
+    }
+    if (found < 0) continue;
+
+    // swap 到 used 位置并推进指针
+    const s = L.slots[found];
+    L.slots[found] = L.slots[L.used];
+    L.slots[L.used] = s;
+    L.used++;
+    taken.push(s);
+    takenByLayer.set(L.l, taken);
+    picks.push({ L, s });
+  }
+
+  // 跨层不够 → 允许同层多取（仍要求坐标不同）
+  if (picks.length < n) {
+    for (const L of layers) {
+      if (picks.length >= n) break;
+      const taken = takenByLayer.get(L.l) || [];
+      while (L.used < L.slots.length && picks.length < n) {
+        const s = L.slots[L.used];
+        const dup = taken.some(t => t.x === s.x && t.y === s.y);
+        L.used++;
+        if (dup) continue;
+        taken.push(s);
+        takenByLayer.set(L.l, taken);
+        picks.push({ L, s });
+      }
+    }
+  }
+  return picks;
+}
+
+/** 兜底：任意可用槽位（不要求分散） */
+function pickAnySlots(layers, n) {
+  const picks = [];
+  for (const L of layers) {
+    while (L.used < L.slots.length && picks.length < n) {
+      picks.push({ L, s: L.slots[L.used++] });
+    }
+    if (picks.length >= n) break;
+  }
+  return picks;
+}
+
+/* pickSpreadSlots 里用到的均匀随机（不依赖关卡种子，保证每局手感不同） */
+let rnd_uniform = Math.random;
+
+/** 可复现随机数（mulberry32），保证同一关每次布局一致 */
+function makeRng(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+/* ---------- 6. 遮挡判定 ---------- */
+/**
+ * 判断方块 t 是否被压住。
+ * 规则：若存在 layer > t.layer 的方块 u，其矩形与 t 的矩形有相交
+ *      （超过阈值面积），则 t 不可点。
+ * 阈值取方块尺寸的 30%，避免「只压到一丁点边角」也被锁死。
+ */
+const OVERLAP_THRESHOLD = 0.30;
+function isLocked(t) {
+  for (const u of G.tiles) {
+    if (u.removed || u.id === t.id) continue;
+    if (u.layer <= t.layer) continue;
+    // 判断重叠面积比例
+    const ox = Math.min(t.x + 1, u.x + 1) - Math.max(t.x, u.x);
+    const oy = Math.min(t.y + 1, u.y + 1) - Math.max(t.y, u.y);
+    if (ox > 0 && oy > 0 && ox * oy >= OVERLAP_THRESHOLD) return true;
+  }
+  return false;
+}
+
+function refreshLocks() {
+  for (const t of G.tiles) {
+    if (t.removed) continue;
+    const locked = isLocked(t);
+    if (t.el) t.el.classList.toggle('locked', locked);
+    t.locked = locked;
+  }
+}
+
+/* ---------- 7. 布局与渲染 ---------- */
+function computeTileSize(bounds) {
+  // 根据盘面可用宽高 + 实际逻辑跨度，算出方块像素大小
+  const availW = boardWrap.clientWidth - 14;
+  const availH = boardWrap.clientHeight - 14;
+  const spanX = bounds.maxX - bounds.minX + 1;
+  const spanY = bounds.maxY - bounds.minY + 1;
+  // 步进要把「层偏移总量」也算进去（约 0.16 × 最大层数）
+  const maxLayer = Math.max(1, G.maxLayer || 1);
+  const stepX = spanX + 0.16 * (maxLayer - 1) + 0.3;
+  const stepY = spanY + 0.16 * (maxLayer - 1) + 0.3;
+  const byW = availW / stepX;
+  const byH = availH / stepY;
+  let size = Math.floor(Math.min(byW, byH));
+  // 上限策略：
+  //   · 块少（跨度小）时允许方块更大，把盘面撑饱满 → 触屏更好点
+  //   · 块多时收紧上限，避免视觉过密
+  const maxSpan = Math.max(spanX, spanY);
+  const cap = maxSpan <= 4 ? 140
+            : maxSpan <= 6 ? 112
+            : maxSpan <= 8 ? 96
+            : 84;
+  size = Math.max(26, Math.min(size, cap));
+  return size;
+}
+
+function layout() {
+  const live = G.tiles.filter(t => !t.removed);
+  if (!live.length) { document.documentElement.style.setProperty('--tile', '56px'); return; }
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const t of live) {
+    minX = Math.min(minX, t.x); maxX = Math.max(maxX, t.x);
+    minY = Math.min(minY, t.y); maxY = Math.max(maxY, t.y);
+  }
+
+  const size = computeTileSize({ minX, maxX, minY, maxY });
+  G.tile = size;
+  document.documentElement.style.setProperty('--tile', size + 'px');
+
+  // 层偏移：每层向右下各偏一点，形成立体堆叠感
+  const DX = Math.round(size * 0.16);
+  const DY = Math.round(size * 0.16);
+  const maxLayer = Math.max(...live.map(t => t.layer));
+
+  const spanX = maxX - minX + 1, spanY = maxY - minY + 1;
+
+  // 盘面尺寸 = 块跨度 + 层偏移总量（不含多余填充，避免底部/右侧留下空白）
+  const boardW = spanX * size + DX * maxLayer - DX;
+  const boardH = spanY * size + DY * maxLayer - DY;
+
+  boardEl.style.width = boardW + 'px';
+  boardEl.style.height = boardH + 'px';
+
+  for (const t of live) {
+    const left = (t.x - minX) * size + t.layer * DX;
+    const top  = (t.y - minY) * size + t.layer * DY;
+    if (t.el) {
+      t.el.style.left = left + 'px';
+      t.el.style.top = top + 'px';
+      t.el.style.width = size + 'px';
+      t.el.style.height = size + 'px';
+      t.el.style.zIndex = t.layer * 100 + (t.id % 100);
+    }
+    t._px = left; t._py = top;
+  }
+
+  // 防溢出兜底：盘面超出可用区域时整体等比缩小（横屏矮屏必走这里）
+  const availW = boardWrap.clientWidth - 12;
+  const availH = boardWrap.clientHeight - 12;
+  const kx = availW / boardW, ky = availH / boardH;
+  const k = Math.min(kx, ky, 1);
+  if (k < 0.999) {
+    boardEl.style.transform = `scale(${k.toFixed(4)})`;
+    // scale 不改变占位，用 margin 负值补偿让视觉居中且不撑破容器
+    const dw = (boardW - boardW * k) / 2;
+    const dh = (boardH - boardH * k) / 2;
+    boardEl.style.margin = `-${dh.toFixed(1)}px -${dw.toFixed(1)}px`;
+  } else {
+    boardEl.style.transform = 'none';
+    boardEl.style.margin = '0';
+  }
+}
+
+function renderBoard() {
+  boardEl.innerHTML = '';
+  for (const t of G.tiles) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tile';
+    btn.dataset.id = t.id;
+
+    const face = document.createElement('span');
+    face.className = 'face';
+    face.style.setProperty('--img', `url("${urlOf(t.type)}")`);
+
+    const dep = document.createElement('span');
+    dep.className = 'dep';
+    dep.textContent = t.layer + 1;
+
+    btn.appendChild(face);
+    btn.appendChild(dep);
+    btn.addEventListener('click', () => onTileClick(t));
+
+    t.el = btn;
+    boardEl.appendChild(btn);
+  }
+  refreshLocks();
+  // 布局要等 DOM 落地、容器高度确定后再算，否则读到的 clientHeight 是旧值
+  // （横屏/旋转时尤其明显，会导致盘面被卡槽裁切）
+  layout();
+  requestAnimationFrame(() => { layout(); requestAnimationFrame(layout); });
+}
+
+function renderDock() {
+  dockEl.innerHTML = '';
+  for (let i = 0; i < SLOT_MAX; i++) {
+    const s = document.createElement('div');
+    s.className = 'slot';
+    const t = G.dock[i];
+    if (t) {
+      s.classList.add('filled');
+      const f = document.createElement('div');
+      f.className = 'face';
+      f.style.setProperty('--img', `url("${urlOf(t.type)}")`);
+      s.appendChild(f);
+      t.slotEl = f;
+    }
+    dockEl.appendChild(s);
+  }
+  // 满 6 个开始预警
+  $('dockWarn').classList.toggle('on', G.dock.length >= 6);
+}
+
+/* ---------- 8. 交互：点击方块 ---------- */
+function onTileClick(t) {
+  if (G.busy || G.lockInput) return;
+  if (t.removed) return;
+  if (t.locked) {
+    toast('这块被压住了，先把上面的清掉');
+    return;
+  }
+  if (G.dock.length >= SLOT_MAX) {
+    toast('卡槽满了');
+    return;
+  }
+
+  G.busy = true;
+
+  // 从盘面移除
+  t.removed = true;
+  const el = t.el;
+
+  // 飞向卡槽的动画
+  flyToDock(el, t, () => {
+    el.remove();
+    G.dock.push(t);
+    renderDock();
+    refreshLocks();
+    updateHUD();
+    checkMatch(t);
+    G.busy = false;
+    checkEnd();
+  });
+}
+
+/** 把方块元素从盘面位置飞到卡槽对应格 */
+function flyToDock(el, t, done) {
+  const dockRect = dockEl.getBoundingClientRect();
+  const boardRect = boardEl.getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+  const idx = G.dock.length;                       // 将落入的格号
+  const slotW = (dockRect.width - 5 * (SLOT_MAX - 1)) / SLOT_MAX;
+  const targetX = dockRect.left + idx * (slotW + 5) + slotW / 2;
+  const targetY = dockRect.top + dockRect.height / 2;
+  const curX = elRect.left + elRect.width / 2;
+  const curY = elRect.top + elRect.height / 2;
+
+  const clone = el.cloneNode(true);
+  clone.classList.add('fly');
+  clone.style.position = 'fixed';
+  clone.style.left = (elRect.left) + 'px';
+  clone.style.top = (elRect.top) + 'px';
+  clone.style.width = elRect.width + 'px';
+  clone.style.height = elRect.height + 'px';
+  clone.style.zIndex = 999;
+  clone.style.transition = 'left .26s cubic-bezier(.4,0,.2,1), top .26s cubic-bezier(.4,0,.2,1), width .26s, height .26s';
+  clone.style.pointerEvents = 'none';
+  document.body.appendChild(clone);
+
+  // 隐藏原块（保留占位避免布局跳动）
+  el.style.visibility = 'hidden';
+
+  requestAnimationFrame(() => {
+    clone.style.left = (targetX - slotW / 2) + 'px';
+    clone.style.top = (targetY - slotW / 2) + 'px';
+    clone.style.width = slotW + 'px';
+    clone.style.height = slotW + 'px';
+  });
+
+  setTimeout(() => { clone.remove(); done(); }, 275);
+}
+
+/* ---------- 9. 消除判定 ---------- */
+function checkMatch(justAdded) {
+  const type = justAdded.type;
+  const same = G.dock.filter(t => t.type === type);
+  if (same.length < 3) return;
+
+  G.busy = true;
+  G.lockInput = true;
+
+  // 取前 3 个同图案
+  const trio = same.slice(0, 3);
+
+  // 播放消除动画
+  trio.forEach((t, i) => {
+    if (t.slotEl) {
+      setTimeout(() => t.slotEl.classList.add('popping'), i * 55);
+    }
+  });
+
+  const dockRect = dockEl.getBoundingClientRect();
+  const fx = dockRect.left + dockRect.width / 2;
+  const fy = dockRect.top - 6;
+
+  setTimeout(() => {
+    // 从卡槽数据中移除
+    G.dock = G.dock.filter(t => !trio.includes(t));
+    G.cleared += trio.length;
+    const gain = 30 + (G.level - 1) * 5;
+    G.score += gain;
+
+    renderDock();
+    updateHUD();
+    floatScore(fx, fy, '+' + gain);
+
+    G.lockInput = false;
+    G.busy = false;
+    checkEnd();
+  }, 300);
+}
+
+/* ---------- 10. 胜负判定 ---------- */
+function checkEnd() {
+  const remain = G.tiles.filter(t => !t.removed).length;
+
+  // 胜利：盘面清空
+  if (remain === 0) {
+    setTimeout(() => {
+      // 通关奖励
+      const bonus = 100 + (G.level - 1) * 50;
+      G.score += bonus;
+      updateHUD();
+      G.done[G.level] = Math.max(G.done[G.level] || 0, G.score);
+      G.unlocked = Math.max(G.unlocked, Math.min(LEVELS.length, G.level + 1));
+      saveProgress();
+      showWin();
+    }, 320);
+    return;
+  }
+
+  // 失败：卡槽满且无法三消
+  if (G.dock.length >= SLOT_MAX) {
+    const counts = {};
+    for (const t of G.dock) counts[t.type] = (counts[t.type] || 0) + 1;
+    const canMatch = Object.values(counts).some(c => c >= 3);
+    if (!canMatch) {
+      setTimeout(() => showLose(), 300);
+    }
+  }
+}
+
+function updateHUD() {
+  const remain = G.tiles.filter(t => !t.removed).length;
+  $('sRemain').textContent = remain;
+  $('sScore').textContent = G.score;
+  $('lvLabel').textContent = '第 ' + G.level + ' 关 · ' + LEVELS[G.level - 1].name;
+  const pct = G.total ? (G.cleared / G.total) * 100 : 0;
+  $('pbar').style.width = pct.toFixed(1) + '%';
+}
+
+/* ---------- 11. 弹窗 ---------- */
+function openOverlay(html) {
+  dialog.innerHTML = html;
+  overlay.classList.add('on');
+}
+function closeOverlay() {
+  overlay.classList.remove('on');
+}
+
+function showWin() {
+  const star = G.dock.length <= 2 ? '⭐⭐⭐' : G.dock.length <= 4 ? '⭐⭐' : '⭐';
+  openOverlay(`
+    <div class="hero" style="background-image:url('${urlOf('heart')}')"></div>
+    <h2>过关啦！</h2>
+    <div class="sub">第 ${G.level} 关「${LEVELS[G.level - 1].name}」完成 · ${star}</div>
+    <div class="result-stats">
+      <div><b>${G.score}</b><span>总得分</span></div>
+      <div><b>${G.total}</b><span>消除方块</span></div>
+      <div><b>${LEVELS[G.level - 1].types}</b><span>图案种类</span></div>
+    </div>
+    <div class="btnrow">
+      ${G.level < LEVELS.length
+        ? `<button class="btn primary" id="btnNext">进入第 ${G.level + 1} 关</button>`
+        : `<button class="btn primary" id="btnAllDone">🎉 全部通关！重玩第 1 关</button>`}
+      <button class="btn ghost" id="btnAgain">再来一次本关</button>
+      <button class="btn ghost" id="btnPick2">选择关卡</button>
+    </div>
+  `);
+  const next = $('btnNext');
+  if (next) next.onclick = () => { closeOverlay(); startLevel(G.level + 1); };
+  const allDone = $('btnAllDone');
+  if (allDone) allDone.onclick = () => { closeOverlay(); startLevel(1); };
+  $('btnAgain').onclick = () => { closeOverlay(); startLevel(G.level); };
+  $('btnPick2').onclick = () => showLevelPicker();
+}
+
+function showLose() {
+  const remain = G.tiles.filter(t => !t.removed).length;
+  openOverlay(`
+    <div class="hero" style="background-image:url('${urlOf('anger')}')"></div>
+    <h2>卡槽满了…</h2>
+    <div class="sub">七个格子被塞满，凑不出三个一样的果叽了</div>
+    <div class="result-stats">
+      <div><b>${G.cleared}</b><span>已消除</span></div>
+      <div><b>${remain}</b><span>剩余方块</span></div>
+      <div><b>${G.score}</b><span>得分</span></div>
+    </div>
+    <div class="btnrow">
+      <button class="btn primary" id="btnRetry">重试本关</button>
+      <button class="btn ghost" id="btnPick3">选择关卡</button>
+    </div>
+  `);
+  $('btnRetry').onclick = () => { closeOverlay(); startLevel(G.level); };
+  $('btnPick3').onclick = () => showLevelPicker();
+}
+
+function showLevelPicker() {
+  const cells = LEVELS.map(L => {
+    const locked = L.id > G.unlocked;
+    const done = !!G.done[L.id];
+    const cls = locked ? 'lv locked' : done ? 'lv open done' : 'lv open';
+    const marks = (!locked && done) ? '✓ ' : locked ? '🔒 ' : '';
+    return `<button class="${cls}" data-lv="${L.id}" ${locked ? 'disabled' : ''}>
+      <span class="n">${marks}${L.id}</span>
+      <span class="d">${locked ? '未解锁' : L.name}</span>
+    </button>`;
+  }).join('');
+
+  openOverlay(`
+    <h2>选择关卡</h2>
+    <div class="sub">渐进式 6 关 · 图案种类与堆叠层数逐关递增</div>
+    <div class="lv-grid">${cells}</div>
+    <div class="btnrow">
+      <button class="btn ghost" id="btnGallery">🍊 果叽图鉴</button>
+      <button class="btn ghost" id="btnClose">返回游戏</button>
+    </div>
+  `);
+  dialog.querySelectorAll('.lv[data-lv]:not(.locked)').forEach(b => {
+    b.onclick = () => { closeOverlay(); startLevel(parseInt(b.dataset.lv, 10)); };
+  });
+  $('btnGallery').onclick = showGallery;
+  $('btnClose').onclick = closeOverlay;
+}
+
+function showGallery() {
+  const cells = ALL_FACES.map(f => `
+    <figure>
+      <div class="thumb" style="background-image:url('${urlOf(f.key)}')"></div>
+      <figcaption>${f.name}</figcaption>
+    </figure>`).join('');
+  openOverlay(`
+    <h2>果叽图鉴</h2>
+    <div class="sub">共 ${ALL_FACES.length} 只果叽，集齐三个相同就能消除</div>
+    <div class="gallery">${cells}</div>
+    <div class="btnrow">
+      <button class="btn ghost" id="btnBack">返回</button>
+    </div>
+  `);
+  $('btnBack').onclick = showLevelPicker;
+}
+
+function showStart() {
+  openOverlay(`
+    <div class="hero" style="background-image:url('${urlOf('peach')}')"></div>
+    <h2>果叽消消乐</h2>
+    <div class="sub">点击堆叠的果叽方块放入卡槽<br>集齐 3 个相同图案自动消除 · 清空全部即过关</div>
+    <div class="btnrow">
+      <button class="btn primary" id="btnStart">开始游戏</button>
+      <button class="btn ghost" id="btnPick0">选择关卡</button>
+    </div>
+  `);
+  $('btnStart').onclick = () => { closeOverlay(); startLevel(G.unlocked); };
+  $('btnPick0').onclick = showLevelPicker;
+}
+
+/* ---------- 12. 开始 / 重开关卡 ---------- */
+function startLevel(n) {
+  G.level = Math.max(1, Math.min(LEVELS.length, n));
+  G.busy = false;
+  G.lockInput = false;
+  closeOverlay();
+
+  const { tiles } = buildLevel(G.level - 1);
+  G.tiles = tiles.map(t => ({ ...t, removed: false }));
+  G.dock = [];
+  G.score = 0;
+  G.total = G.tiles.length;
+  G.cleared = 0;
+  G.maxLayer = G.tiles.reduce((m, t) => Math.max(m, t.layer), 0);
+  G.busy = false;
+  G.lockInput = false;
+
+  renderBoard();
+  renderDock();
+  updateHUD();
+}
+
+/* ---------- 13. 提示（找一对可点的同图案） ---------- */
+function doHint() {
+  if (G.busy || G.lockInput) return;
+  const free = G.tiles.filter(t => !t.removed && !t.locked);
+  if (!free.length) { toast('没有可点的方块了'); return; }
+
+  // 1) 优先：卡槽里已有 2 个同图案 → 提示第 3 个
+  const dockCount = {};
+  for (const t of G.dock) dockCount[t.type] = (dockCount[t.type] || 0) + 1;
+  for (const t of free) {
+    if ((dockCount[t.type] || 0) === 2) {
+      flashHint([t]); return;
+    }
+  }
+  // 2) 其次：卡槽里已有 1 个 → 提示同图案的可点块
+  for (const t of free) {
+    if ((dockCount[t.type] || 0) === 1) { flashHint([t]); return; }
+  }
+  // 3) 再次：找出可点块中同图案 ≥ 2 的一对
+  const byType = {};
+  for (const t of free) (byType[t.type] = byType[t.type] || []).push(t);
+  for (const k in byType) {
+    if (byType[k].length >= 3) { flashHint(byType[k].slice(0, 3)); return; }
+  }
+  for (const k in byType) {
+    if (byType[k].length >= 2) { flashHint(byType[k].slice(0, 2)); return; }
+  }
+  toast('暂时没有能连成三个的选择，换个顺序试试');
+}
+
+function flashHint(list) {
+  list.forEach(t => {
+    if (!t.el) return;
+    t.el.classList.add('hint');
+    setTimeout(() => t.el && t.el.classList.remove('hint'), 2200);
+  });
+  toast('试试这几只果叽');
+}
+
+/* ---------- 14. 事件绑定 ---------- */
+$('btnRestart').onclick = () => {
+  openConfirm('重开本关？', '当前进度会丢失，方块会重新打乱', () => {
+    closeOverlay(); startLevel(G.level);
+  });
+};
+$('btnLevels').onclick = showLevelPicker;
+
+function openConfirm(title, desc, onOk) {
+  openOverlay(`
+    <h2>${title}</h2>
+    <div class="sub">${desc}</div>
+    <div class="btnrow">
+      <button class="btn primary" id="btnOk">确定</button>
+      <button class="btn ghost" id="btnCancel">取消</button>
+    </div>
+  `);
+  $('btnOk').onclick = onOk;
+  $('btnCancel').onclick = () => { closeOverlay(); };
+}
+
+// 键盘快捷键
+window.addEventListener('keydown', e => {
+  if (e.key === 'r' || e.key === 'R') {
+    if (!overlay.classList.contains('on')) startLevel(G.level);
+  }
+  if (e.key === 'h' || e.key === 'H') doHint();
+  if (e.key === 'Escape') closeOverlay();
+});
+
+// 窗口尺寸变化 → 重排
+let rzTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(rzTimer);
+  rzTimer = setTimeout(() => layout(), 120);
+});
+window.addEventListener('orientationchange', () => setTimeout(layout, 260));
+
+// 点击遮罩空白处不关闭（避免误触丢弹窗）
+overlay.addEventListener('click', e => { if (e.target === overlay) { /* 保留 */ } });
+
+/* ---------- 15. 启动 ---------- */
+function preloadImages(cb) {
+  let loaded = 0;
+  const total = ALL_FACES.length;
+  let fired = false;
+  const finish = () => { if (!fired) { fired = true; cb(); } };
+  ALL_FACES.forEach(f => {
+    const img = new Image();
+    img.onload = img.onerror = () => {
+      if (++loaded >= total) finish();
+    };
+    img.src = urlOf(f.key);
+  });
+  setTimeout(finish, 3000);   // 兜底超时
+}
+
+function boot() {
+  loadProgress();
+  preloadImages(() => {
+    $('loader').classList.add('off');
+    startLevel(G.unlocked);
+    showStart();
+  });
+}
+
+boot();
+
+/* ---------- 16. 调试接口（控制台可用） ---------- */
+window.__GJ = {
+  G, LEVELS, ALL_FACES,
+  startLevel, buildLevel, doHint,
+  checkEnd, checkMatch, renderDock, renderBoard, layout, updateHUD,
+  showWin, showLose, showLevelPicker, showGallery,
+  stats() {
+    const free = G.tiles.filter(t => !t.removed && !t.locked).length;
+    const remain = G.tiles.filter(t => !t.removed).length;
+    const byType = {};
+    G.tiles.filter(t => !t.removed).forEach(t => byType[t.type] = (byType[t.type] || 0) + 1);
+    return {
+      level: G.level, remain, free, dock: G.dock.length,
+      dockTypes: G.dock.map(t => t.type), remainByType: byType,
+    };
+  },
+};
+</script>
+
+<script>
+/* 麦次元公众号引导标签：点一下复制公众号名，方便直接去微信粘贴搜索。
+   复用页面自带的 #toast 提示样式，保持视觉统一；tabindex=-1 不抢键盘焦点。 */
+(function(){
+  var tag = document.getElementById('mktTag');
+  var toastEl = document.getElementById('toast');
+  if (!tag || !toastEl) return;
+  var NAME = '麦次元', timer = null;
+
+  function tip(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('on');
+    clearTimeout(timer);
+    timer = setTimeout(function(){ toastEl.classList.remove('on'); }, 1800);
+  }
+  function fallbackCopy(text){
+    try{
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    }catch(e){ return false; }
+  }
+  tag.addEventListener('click', function(){
+    var done = function(){ tip('已复制「' + NAME + '」，去微信搜索吧'); };
+    var miss = function(){ tip('去微信搜索公众号「' + NAME + '」'); };
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(NAME).then(done, function(){
+        fallbackCopy(NAME) ? done() : miss();
+      });
+    }else{
+      fallbackCopy(NAME) ? done() : miss();
+    }
+  });
+})();
+</script>
 </body>
 </html>
