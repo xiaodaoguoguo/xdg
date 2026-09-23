@@ -125,6 +125,30 @@
     .stat .t{font-size:10px}
   }
 </style>
+
+<!-- 果叽访问统计 · Umami（匿名、无 cookie、不记录个人信息） -->
+<script defer src="https://cloud.umami.is/script.js" data-website-id="23a6c515-23e1-4f47-9f5b-56c832a5190e" data-domains="xiaodaoguoguo.github.io"></script>
+<script>
+(function () {
+  var t0 = Date.now(), sent = false;
+  var slug = (location.pathname.split('/').pop() || 'index').replace(/\.html$/, '') || 'index';
+
+  window.guojiTrack = function (name, data) {
+    try { if (window.umami && window.umami.track) window.umami.track(name, data || {}); } catch (e) {}
+  };
+
+  function leave() {
+    if (sent) return;
+    sent = true;
+    window.guojiTrack('stay', { page: slug, seconds: Math.round((Date.now() - t0) / 1000) });
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') leave();
+  });
+  window.addEventListener('pagehide', leave);
+})();
+</script>
 </head>
 <body>
 <div id="app">
