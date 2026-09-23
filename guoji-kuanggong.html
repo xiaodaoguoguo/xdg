@@ -772,7 +772,11 @@ var META = {"id": "miner", "title": "果叽矿工", "sub": "果叽守着坑口�
      降到 0.76 后一个来回约 6.6s：仍然是"要等"，但等得住、看得清。 */
   var SWING0    = 0.76;                 /* 第 1 关角速度 rad/s */
   var SWING_STEP= 0.080, SWING_MAX = 1.30;
-  var SHOOT_V   = 1000;                 /* 甩出速度 px/s */
+  /* ★ 甩出速度：1000 → 700 px/s。
+     钩子飞得慢一点，玩家看得清"它往哪走、还差多少够到"；
+     这本身也是难度：飞行时间 T = 距离 ÷ 700，600px 外那件要飞 0.86s（原来 0.60s），
+     而会走的果叽正是靠这段 T 拉开提前量（Δ = vPeak × T）。 */
+  var SHOOT_V   = 700;                  /* 甩出速度 px/s */
   var PULL_V    = 780;                  /* 空钩收回速度 px/s */
   var PULL_WK   = 0.62;                 /* 重量对收回速度的惩罚系数 */
   var TIME0     = 60, TIME_MIN = 44, TIME_STEP = 1.8;
@@ -797,6 +801,28 @@ var META = {"id": "miner", "title": "果叽矿工", "sub": "果叽守着坑口�
      3 件是「绕一下 / 撞开它」真能二选一的量级。 */
   var MAX_LOCK  = 3;
   var MIN_TRAVEL= 34;                   /* 钩口到最近物件的**构造**最小行程 px */
+
+  /* ---------------- 会走的果叽（左右横移，得打提前量） ----------------
+     ★ 难点不在"它在动"，而在"钩子飞过去这段时间它也在动"：
+       飞行时间 T = 距离 ÷ SHOOT_V，T 之内目标横移 Δ = vPeak × T。
+       600px、SHOOT_V=700 ⇒ T≈0.86s，vPeak 取 80 时 Δ≈69px ≈ 1.2 倍果叽直径 ——
+       这就是「必须打提前量、但看得出规律」的量级。
+       再快就不是难度而是赌运气了，所以峰值速度有硬上限（MOVE_VMAX）。
+     ★ 用正弦而不是匀速往返：两头慢、中间快。
+       两端是「它停下来了，打！」的好时机，中间是「要打提前量」的时机 ——
+       节奏读得懂，玩家能学会，不是纯赌。 */
+  var MOVE_AMP  = 46;                   /* 振幅上限 px（实际按可用余量夹小） */
+  var MOVE_MIN  = 18;                   /* 振幅夹到这以下就别动了（抖一下没意义） */
+  var MOVE_W    = 1.70;                 /* 第 1 关角速度 rad/s（一个来回约 3.7s） */
+  var MOVE_WSTEP= 0.14, MOVE_WMAX = 2.50;
+  /* ★ 峰值速度硬上限 px/s，构造保证 amp × ω ≤ MOVE_VMAX。
+     115 对应「600px + SHOOT_V 700」下 Δ ≈ 99px；再快提前量就超过果叽本身三倍，
+     玩家只能瞎蒙。 */
+  var MOVE_VMAX = 115;
+  /* 移动果叽与别人的间隙系数，留 6% 余量 ——
+     让「整个行程都不撞别人」是构造保证而不是碰运气
+     （验收有两条盯着：mvGap ≥ 0、走到两头也在摆动角内）。 */
+  var MOVE_SP   = 1.06;
 
   /* 物件规格：v 分值 / w 重量（越大收回越慢）/ s 相对尺寸 / extra 命中后的额外加成 */
   var KIND = {
@@ -978,6 +1004,10 @@ var META = {"id": "miner", "title": "果叽矿工", "sub": "果叽守着坑口�
     ensureBlocked();
     /* 视口缩小后绳子可能比新的射程还长 —— 顺手夹回可用范围，别让钩子挂在坑外 */
     if (C.hookLen != null) C.hookLen = clamp(C.hookLen, G.hookRest, reachAt(C.ang));
+    /* ★ 会走的果叽放**最后一步**：这时候挡路果叽的位置、以及"哪些件被挡住"
+       都已经定下来了，才能保证「移动的果叽不在挡路果叽后面」
+       （否则它会横着走出遮挡区，遮挡计数随相位飘 → 断言随机翻红）。 */
+    setupMovers();
   }
 
   function clampItem(it) {
@@ -1269,6 +1299,167 @@ var META = {"id": "miner", "title": "果叽矿工", "sub": "果叽守着坑口�
     if (!placeOneBlock(blk, 1, MAX_LOCK + 2)) gridPlace(blk);
   }
 
+  /* ================= 会走的果叽：构造保证的横移布置 =================
+     ① 挑候选（正式战利品、且不在挡路果叽后面）
+     ② 算「圆心能横着走多远」
+     ③ 逐个分配，后分配的把**先分配的活动区间**当障碍 ——
+        于是「移动果叽之间不会撞」也成了构造保证，不靠碰运气。
+     挂在 relayout() 最后一步：resize 和换关都会重算一遍。 */
+
+  function movePlan(lv) { return Math.min(5, 2 + Math.floor((lv - 1) / 3)) }
+  function moveWOf(lv) { return Math.min(MOVE_WMAX, MOVE_W + (lv - 1) * MOVE_WSTEP) }
+
+  /* 圆心能横着走多远 → [lo, hi]。三重约束取交集：
+     ① 场地左右边界（留 2px）
+     ② **摆动角锥**：物件得一直在钩子打得着的锥内。yMinAt 给的是「给定 x 时 y 的最小值」，
+        这里要反过来解「给定 y 时 x 的范围」：y - fieldY - r ≥ |dx| × TAN_INV
+        ⇒ |dx| ≤ M ÷ TAN_INV。再乘 0.94 留余量，别贴着锥边走。
+     ③ 同一水平带里的其他物件 + 已分配好的移动果叽的**整段活动区间**
+        （区间不相交 ⇒ 任何相位都不会撞）。 */
+  function moveBand(it, assigned) {
+    var lo = G.fieldX + it.r + 2, hi = G.fieldX + G.fieldW - it.r - 2;
+    var M = (it.y - G.fieldY - it.r) * 0.94;
+    var half = Math.max(0, M / TAN_INV);
+    lo = Math.max(lo, G.pivotX - half);
+    hi = Math.min(hi, G.pivotX + half);
+    for (var i = 0; i < C.items.length; i++) {
+      var o = C.items[i];
+      if (o === it || o.taken || o.knock > 0 || o.mv) continue;
+      if (Math.abs(o.y - it.y) >= (o.r + it.r) * MOVE_SP) continue;
+      var cl = (o.r + it.r) * MOVE_SP;
+      if (o.x < it.x) lo = Math.max(lo, o.x + cl);
+      else hi = Math.min(hi, o.x - cl);
+    }
+    (assigned || []).forEach(function (b) {
+      if (Math.abs(b.y - it.y) >= (b.r + it.r) * MOVE_SP) return;
+      var cl = (b.r + it.r) * MOVE_SP;
+      var b0 = b.mv.bx - b.mv.amp, b1 = b.mv.bx + b.mv.amp;
+      if (b1 < it.x) lo = Math.max(lo, b1 + cl);
+      else if (b0 > it.x) hi = Math.min(hi, b0 - cl);
+      else { lo = 1; hi = 0 }               /* 它的活动区间已经包住这只 → 放不下 */
+    });
+    return [lo, hi];
+  }
+
+  function setupMovers() {
+    if (!C || !G) return;
+    C.items.forEach(function (it) { it.mv = null });   /* resize 后要重算，先清空 */
+    C.movers = 0;
+    var plan = movePlan(C.level);
+    if (plan <= 0) return;
+    /* ★ 候选只从**正式战利品**里挑：
+       · 不碰幸运果叽 —— 它本来就是额外奖励，变成移动的等于白给
+       · 不碰挡路果叽（它不是战利品）
+       · 排除"已经在挡路果叽后面"的 —— 否则它会横着走出遮挡区，
+         「挡住 N 件」随相位忽多忽少（那会变成一条随机翻红的断言） */
+    var cand = [];
+    C.items.forEach(function (it) {
+      if (!SCORED[it.kind] || it.taken || it.mv) return;
+      if (blockedBy(it) > 0) return;
+      var b = moveBand(it, []);
+      var w = Math.min(it.x - b[0], b[1] - it.x);
+      if (w < MOVE_MIN) return;
+      cand.push({ it: it, w: w });
+    });
+    if (!cand.length) return;
+    /* 走得更宽的优先（幅度小到看不出来 = 没加难度），同宽的随机 ——
+       先按宽度降序，再在前 2×plan 只里洗牌：每局不一样，但都动得明显。 */
+    cand.sort(function (p, q) { return q.w - p.w });
+    var pool = cand.slice(0, Math.max(plan, Math.min(cand.length, plan * 2)));
+    U.shuffle(pool);
+    var assigned = [];
+    for (var i = 0; i < pool.length && C.movers < plan; i++) {
+      var it2 = pool[i].it;
+      var b2 = moveBand(it2, assigned);
+      var amp = Math.min(MOVE_AMP, it2.x - b2[0], b2[1] - it2.x);
+      if (amp < MOVE_MIN) continue;
+      /* ★ ω 被 MOVE_VMAX ÷ amp 再夹一次：构造保证 amp × ω ≤ MOVE_VMAX（峰值速度硬上限） */
+      var w2 = Math.min(moveWOf(C.level), MOVE_VMAX / amp);
+      it2.mv = {
+        bx: it2.x, amp: amp, w: w2,
+        ph: Math.random() * 6.283       /* 相位各自随机：不整齐划一，也更好看 */
+      };
+      assigned.push(it2);
+      C.movers++;
+    }
+  }
+
+  /* 诊断用：整段行程里「移动果叽与别人」的最小间隙 px。
+     ① 移动 ↔ 移动：两段活动区间之间的最小距离（端点取最坏 —— 数学上就是最坏情况）
+     ② 移动 ↔ 静止：沿固定那条 y，把静止件投影到活动区间上取最近点
+     验收拿它断言 ≥ 0：保证不会出现"两只果叽叠在一起"的画面。 */
+  function moveGapOf() {
+    if (!C) return 99;
+    var mv = [];
+    C.items.forEach(function (it) { if (it.mv && !it.taken) mv.push(it) });
+    if (!mv.length) return 99;
+    var best = 1e9;
+    for (var i = 0; i < mv.length; i++) {
+      for (var j = i + 1; j < mv.length; j++) {
+        var a = mv[i], b = mv[j];
+        /* ★ 必须把 y 差一并算进去。只比横向会算出负值 —— 那是**假警**，不是真重叠：
+           纵向差得够远时（moveBand 里 |Δy| ≥ (r+r)×MOVE_SP 就不约束 x 了），
+           两只果叽的横向区间可以重叠，但圆心根本挨不着。
+           实测就是这么误报 -28px 的：真重叠 0 次，假警 2 次。 */
+        var dxmin = Math.max(0, Math.abs(a.mv.bx - b.mv.bx) - a.mv.amp - b.mv.amp);
+        var g = Math.hypot(dxmin, a.y - b.y) - a.r - b.r;
+        if (g < best) best = g;
+      }
+    }
+    for (var k = 0; k < mv.length; k++) {
+      var m = mv[k], x0 = m.mv.bx - m.mv.amp, x1 = m.mv.bx + m.mv.amp;
+      for (var t = 0; t < C.items.length; t++) {
+        var o = C.items[t];
+        if (o === m || o.taken || o.mv) continue;
+        var nx = clamp(o.x, x0, x1);
+        var g2 = Math.hypot(o.x - nx, o.y - m.y) - o.r - m.r;
+        if (g2 < best) best = g2;
+      }
+    }
+    return Math.round(best);
+  }
+
+  /* 诊断用：**当前这一刻**场上物件两两之间的最小间隙 px。
+     移动果叽是活的，所以验收会隔一段时间连采多次取最小值 ——
+     那才是"整个运动过程真的没重叠"的**实测**证据（构造推导只是保证，实测才算验过）。
+     被抓住的（taken）和正在飘的（knock>0）不算：它们不在场上。 */
+  function minGapNow() {
+    if (!C) return 99;
+    var best = 1e9, live = 0;
+    for (var i = 0; i < C.items.length; i++) {
+      if (C.items[i].taken || C.items[i].knock > 0) continue;
+      live++;
+      for (var j = i + 1; j < C.items.length; j++) {
+        if (C.items[j].taken || C.items[j].knock > 0) continue;
+        var a = C.items[i], b = C.items[j];
+        var g = Math.hypot(b.x - a.x, b.y - a.y) - a.r - b.r;
+        if (g < best) best = g;
+      }
+    }
+    return live < 2 ? 99 : Math.round(best);
+  }
+
+  /* 诊断用：移动果叽走到两头时最偏的角度（度）—— 得一直在摆动角锥里 */
+  function moveAngDeg() {
+    if (!C) return 0;
+    var m = 0;
+    C.items.forEach(function (it) {
+      if (!it.mv) return;
+      var x0 = it.mv.bx - it.mv.amp, x1 = it.mv.bx + it.mv.amp;
+      var dy = Math.max(1, it.y - G.pivotY);
+      m = Math.max(m, Math.abs(Math.atan2(x0 - G.pivotX, dy)),
+                      Math.abs(Math.atan2(x1 - G.pivotX, dy)));
+    });
+    return Math.round(m * 57.2958);
+  }
+
+  /* 诊断用：移动果叽里峰值速度最大的那个 px/s（= amp × ω） */
+  function movePeak() {
+    var p = 0;
+    if (C) C.items.forEach(function (it) { if (it.mv) p = Math.max(p, it.mv.amp * it.mv.w) });
+    return Math.round(p);
+  }
+
   /* 当前角度上绳子能伸多远：射线与场地矩形求交 */
   function reachAt(ang) {
     if (!G) return 300;
@@ -1370,7 +1561,8 @@ var META = {"id": "miner", "title": "果叽矿工", "sub": "果叽守着坑口�
     C.hookLen = G.hookRest;
     buildLevel(lv);
     C.banner = { title: '第 ' + lv + ' 关', sub: '目标 ' + C.target + ' 分 · 摆动更快了'
-                 + (lv >= 2 ? ' · 多了 ' + blockCount(lv) + ' 只挡路的' : ''),
+                 + (blockCount(lv) ? ' · ' + blockCount(lv) + ' 只挡路的' : '')
+                 + (C.movers ? ' · ' + C.movers + ' 只果叽在乱走' : ''),
                  t: 1.25, kind: 'lv' };
     syncHud();
   }
@@ -1550,6 +1742,15 @@ var META = {"id": "miner", "title": "果叽矿工", "sub": "果叽守着坑口�
       bl.knock -= dt;
       if (bl.fly < 1) bl.fly = Math.min(1, bl.fly + dt * BLOCK_FLY);
       if (bl.knock <= 0) { bl.knock = 0; bl.fly = 0; bl.back = 0.45 }
+    }
+
+    /* ★ 会走的果叽：横向正弦来回。位置每帧由 C.t 现算，而不是 x += v*dt ——
+       增量积分会累积浮点误差，resize 后还会和 bx 对不上（越跑越偏）。
+       摆动 / 甩出 / 收回三个阶段它都在走，所以放在 phase 分支**之前**。 */
+    for (var mi = 0; mi < C.items.length; mi++) {
+      var mvit = C.items[mi];
+      if (!mvit.mv || mvit.taken) continue;
+      mvit.x = mvit.mv.bx + Math.sin(C.t * mvit.mv.w + mvit.mv.ph) * mvit.mv.amp;
     }
 
     if (C.phase === 'swing') {
@@ -2118,6 +2319,11 @@ var META = {"id": "miner", "title": "果叽矿工", "sub": "果叽守着坑口�
       if (sp >= HIT_WIN) nReach++;
       minSpan = Math.min(minSpan, sp);
     });
+    /* 会走的果叽：只数「真的挂了 mv 的」——
+       配比是目标值，实际可能因为场地太挤少放一两只（下面断言留了这个余量）。 */
+    var nMv = 0;
+    C.items.forEach(function (it) { if (it.mv) nMv++ });
+    var mvGap = moveGapOf(), mvAng = moveAngDeg(), mvPeak = movePeak();
     return [
       ['布局：HUD / 关卡条都不压住果叽（关卡条底 ' + Math.round(G.barTop + G.barH)
        + ' ≤ 果叽顶 ' + heroTop + '）',
@@ -2138,7 +2344,20 @@ var META = {"id": "miner", "title": "果叽矿工", "sub": "果叽守着坑口�
       ['布局：每只挡路果叽都打得中（最窄可命中角宽 ' + (Math.round(minSpan * 573) / 10)
        + '° ≥ ' + (Math.round(HIT_WIN * 573) / 10) + '°，' + nReach + '/' + nBlocks + ' 只）',
        nReach === nBlocks],
-      ['布局：幸运果叽每关有且只有一只（' + nbn + '）', nbn === 1]
+      ['布局：幸运果叽每关有且只有一只（' + nbn + '）', nbn === 1],
+      /* ★ 会走的果叽四条。前三行都是**构造保证**，不是碰运气：
+         · 配比：允许场地太挤时少放一只（极窄屏），但不能一只都没有
+         · mvGap ≥ 0：整个行程里移动果叽都不会跟别人叠上（活动区间不相交）
+         · 走到两头仍在摆动角锥内（不靠"它一般走不到边"糊过去）
+         · 峰值速度有硬上限：超过就会出现"提前量比果叽大三倍"的瞎蒙局 */
+      ['布局：会走的果叽按关卡配比上场（' + nMv + ' 只 ＝ 配方 ' + movePlan(C.level) + '）',
+       C.items.length < 6 || (nMv >= Math.max(1, movePlan(C.level) - 1) && nMv <= movePlan(C.level))],
+      ['布局：会走的果叽整个行程都不撞别人（最小间隙 ' + mvGap + 'px ≥ 0）',
+       nMv === 0 || mvGap >= 0],
+      ['布局：会走的果叽走到两头也在摆动角内（最偏 ' + mvAng + '° ≤ '
+       + Math.round(MAXA * 57.2958) + '°）', mvAng <= MAXA * 57.2958 - 0.01],
+      ['布局：会走的果叽不会快到没法打（峰值 ' + mvPeak + 'px/s ≤ ' + MOVE_VMAX
+       + '，600px 外折合提前量 ' + Math.round(mvPeak * 600 / SHOOT_V) + 'px）', mvPeak <= MOVE_VMAX]
     ];
   }
 
@@ -2187,6 +2406,27 @@ var META = {"id": "miner", "title": "果叽矿工", "sub": "果叽守着坑口�
         items: C.items.length, left: left, taken: taken,
         blockN: blocks, blockGone: blocked, bonusLeft: bonusLeft,
         blockedLoot: blockedLootCount(),
+        /* 会走的果叽：只数 / 配方 / 最大振幅 / 峰值速度 / 行程最小间隙 / 最偏角
+           + 第一只的当前 x —— 验收会隔 600ms 再读一次 mvX，确认它**真的在动**
+           （光有 mv 字段不算，得看位置随时间变化） */
+        movers: C.movers || 0, movePlan: movePlan(C.level),
+        mvAmp: (function () {
+          var a = 0;
+          C.items.forEach(function (it) { if (it.mv) a = Math.max(a, Math.round(it.mv.amp)) });
+          return a;
+        })(),
+        mvPeak: movePeak(), mvGap: moveGapOf(), mvAngDeg: moveAngDeg(),
+        /* 当前这一刻的全场最小间隙 —— 移动果叽是活的，
+           验收会隔一段时间连采多次取最小值（构造推导只管"应该"，实测才算"验过"） */
+        minGapNow: minGapNow(),
+        mvX: (function () {
+          /* 只取**还在场上**的那只：被抓走的已经不动了（update 里跳过 taken），
+             拿它当样本会让"真的在走"那条断言假红。 */
+          for (var i = 0; i < C.items.length; i++) {
+            if (C.items[i].mv && !C.items[i].taken) return Math.round(C.items[i].x);
+          }
+          return null;
+        })(),
         /* 每只挡路果叽的可命中角宽（度）—— 排查"打得中"那条断言用的 */
         blockSpans: (function () {
           var o = [];
@@ -2248,7 +2488,11 @@ var META = {"id": "miner", "title": "果叽矿工", "sub": "果叽守着坑口�
             var aw = (it.r + G.tipR) / Math.max(40, dist);
             var da = Math.abs(angDiff(ang, C.ang));
             var sc = aw * (1 + (it.k.v + (it.k.extra || 0)) / 500) - da * 0.30
-                   + (rayClear(ang, dist + it.r) ? 0.15 : -0.55);
+                   + (rayClear(ang, dist + it.r) ? 0.15 : -0.55)
+                   /* ★ 会走的果叽降权：先吃不动的更划算 ——
+                      "等角度到位再甩"这套对移动目标会一直擦空（得打提前量）。
+                      全场只剩会走的时它仍会去打，不会卡死。 */
+                   - (it.mv ? 0.5 : 0);
             if (sc > bs) { bs = sc; best = { it: it, ang: ang } }
           }
           return best;
