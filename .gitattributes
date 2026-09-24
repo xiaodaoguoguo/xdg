@@ -1,0 +1,11 @@
+# 二进制素材不做换行转换（autocrlf=input 时防止误判为文本）
+*.webp binary
+*.png  binary
+*.gif  binary
+*.jpg  binary
+
+# 网页统一 LF
+*.html text eol=lf
+*.css  text eol=lf
+*.js   text eol=lf
+*.json text eol=lf
