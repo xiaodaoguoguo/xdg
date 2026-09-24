@@ -513,16 +513,21 @@ var META = {"id": "miner", "title": "果叽矿工", "sub": "果叽守着坑口�
           if (done === keys.length) resolve();
         }
 
+        /* 已是完整地址的内联小图（data URI）不再拼前缀，否则会被拼成
+           assets/xx/data:image/...;base64,... 而 404 */
+        function urlAt(i, name) {
+          return /^(data:|blob:|https?:|\/\/)/.test(name) ? name : ASSET_BASES[i] + name;
+        }
         /* 先走选中的源，失败则依次回退后续候选，最后一个是同域（保证一定玩得上） */
         function loadInto(img, name) {
           if (!name) { tick(); return; }
           var i = ASSET_BASES.indexOf(ASSET_BASE); if (i < 0) i = 0;
           img.onload = tick;
           img.onerror = function () {
-            if (++i < ASSET_BASES.length) img.src = ASSET_BASES[i] + name;
+            if (++i < ASSET_BASES.length) img.src = urlAt(i, name);
             else { tick(); }
           };
-          img.src = ASSET_BASES[i] + name;
+          img.src = urlAt(i, name);
         }
 
         loadInto(im, nmImg);
