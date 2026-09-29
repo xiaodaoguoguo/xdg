@@ -19,10 +19,12 @@
 
   /* ==================== 0. 配置 ==================== */
 
-  /* ★ 部署完 Cloudflare Worker 之后，把下面这行的占位符换成你的 Worker 地址。
-     形如：var API = 'https://guoji-rank.你的名字.workers.dev';
-     不要带结尾的斜杠。没换之前脚本不报错，只是不上报、榜单显示「还没接上」。 */
-  var API = 'https://guoji-rank.a1023712662.workers.dev';
+  /* ★ 后端地址。当前跑在 Cloudflare Pages 上，**刻意不用 workers.dev**：
+     `*.workers.dev` 在国内被 GFW 定向封了（TLS 握手时 SNI 里一带这个后缀就被重置），
+     而 `*.pages.dev` 实测国内可直连，所以后端整体搬到了 Pages。
+     要换地址只改这一行，不要带结尾的斜杠。
+     地址不可达时脚本不报错，只是不上报、榜单显示「还没接上」。 */
+  var API = 'https://guoji-rank.pages.dev';
 
   var CONFIGURED = API.indexOf('http') === 0;
 
