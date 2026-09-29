@@ -1,7 +1,7 @@
 /**
  * 果叽小游戏 · 昵称门 + 在线排行榜（前端共享脚本）
  *
- * 6 个页面共用这一份：index.html 和 5 个游戏页。
+ * 8 个页面共用这一份：index.html 和 7 个游戏页。
  * 用法：
  *   <script defer src="assets/guoji-rank.js"></script>
  *
@@ -36,8 +36,12 @@
     tiaoyitiao: '跳一跳',
     feifei:     '飞飞',
     xiaoxiaole: '消消乐',
+    jiawawaji:  '夹娃娃机',
+    kuanggong:  '矿工',
   };
-  var GAME_ORDER = ['dadishu', 'ganfan', 'tiaoyitiao', 'feifei', 'xiaoxiaole'];
+  /* 标签顺序：沿用原有 5 个游戏的顺序，新游戏追加在后面。
+     ★ 新增游戏时，这里、GAME_LABEL、以及服务端 Worker 的 GAMES 三处要一起加 */
+  var GAME_ORDER = ['dadishu', 'ganfan', 'tiaoyitiao', 'feifei', 'xiaoxiaole', 'jiawawaji', 'kuanggong'];
 
   /* 与服务端保持一致：允许文字 / 数字 / 表情 / 空格 / 下划线 / 连字符 / 间隔点 / 句点 */
   var NAME_SHAPE = /^[\p{L}\p{N}\p{Extended_Pictographic} _\-·.]+$/u;
@@ -95,7 +99,7 @@
 
   /* ==================== 2. 统一计时器 ==================== */
 
-  /* 5 个游戏各写各的计时会失真（比如干饭的 G.t 在暂停时仍然在涨），
+  /* 7 个游戏各写各的计时会失真（比如干饭的 G.t 在暂停时仍然在涨），
      所以统一在这里计：谁开局调 begin，谁暂停调 hold，谁恢复调 free。
      hold/free 用计数配对，游戏自己的暂停和「切走标签页」可以叠加，互不干扰。 */
   var T = { acc: 0, mark: 0, on: false, hold: 0 };
@@ -410,7 +414,7 @@
       bodyEl.appendChild(el('p', 'gq-empty', text));
     }
 
-    /* 标签：总览 + 5 个游戏 */
+    /* 标签：总览 + 每个游戏 */
     var keys = ['all'].concat(GAME_ORDER);
     var tabMap = {};
     keys.forEach(function (k) {
@@ -449,6 +453,11 @@
       .then(function (j) {
         if (!j || !j.ok || !j.games) throw new Error('bad payload');
         data = j.games;
+        /* 服务端可能还是旧版（GAMES 里没有某个新游戏）：这种情况把那个标签藏掉，
+           否则点进去是一片空白，看着像坏了 */
+        GAME_ORDER.forEach(function (k) {
+          if (!data[k] && tabMap[k]) tabMap[k].style.display = 'none';
+        });
         paint();
       })
       .catch(function () {

@@ -300,6 +300,7 @@ h1.title{
   window.addEventListener('pagehide', leave);
 })();
 </script>
+<script defer src="assets/guoji-rank.js"></script>
 </head>
 <body>
 <div id="app">
@@ -393,6 +394,11 @@ var META = {"id": "miner", "title": "果叽矿工", "sub": "果叽守着坑口�
   var SLOTS = window.SLOTS || {};
   var BRAND = window.BRAND || { name: '麦次元', hint: '解锁更多可爱的果叽糖蛋', ip: '果叽', ipSub: '糖蛋表情包', title: '果叽小游戏' };
   var META = window.META || { id: 'demo', title: '果叽小游戏', sub: '' };
+
+  /* 在线排行榜里的游戏标识。
+     ★ 这个名字必须与 assets/guoji-rank.js 的 GAME_LABEL / 服务端 Worker 的 GAMES 三处完全一致，
+       写错不会报错，只会「成绩悄悄不上报」（前端按 GAME_LABEL[game] 是否存在决定发不发）。 */
+  var RANK_GAME = 'kuanggong';
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -712,6 +718,7 @@ var META = {"id": "miner", "title": "果叽矿工", "sub": "果叽守着坑口�
     startGame: function () {
       GQ.score = 0; GQ.t = 0; GQ.clock = 0; GQ.clockFrozen = false;
       GQ.state = 'playing';
+      if (window.GQ && GQ.rank) GQ.rank.begin();   /* 排行榜：本局计时起跑 */
       show(null);
       GQ.syncHud();
       var r = game && game.init ? game.init(GQ) : null;
@@ -723,6 +730,12 @@ var META = {"id": "miner", "title": "果叽矿工", "sub": "果叽守着坑口�
       GQ.state = 'over';
       var sc = res.score != null ? res.score : GQ.score;
       GQ.score = sc;
+
+      /* 排行榜：结算上报。没起过名的访客前端会静默跳过，不影响本地最高分 */
+      if (window.GQ && GQ.rank) {
+        GQ.rank.finish({ game: RANK_GAME, score: sc, reason: res.reason || '', lv: res.lv });
+      }
+
       var b = best(), isNew = sc > b;
       if (isNew) { b = sc; setBest(b) }
       setText('#overScore', sc);
@@ -1967,7 +1980,7 @@ var META = {"id": "miner", "title": "果叽矿工", "sub": "果叽守着坑口�
     var title = C.level >= 5 ? (ov[0] || '果叽挖到宝啦！')
               : (C.level >= 3 ? (ov[1] || '果叽挖得不错') : (ov[2] || '果叽才刚下坑…'));
     GQ.endGame({
-      score: C.score, title: title,
+      score: C.score, title: title, reason: 'timeup', lv: C.level,
       rows: [['到达关卡', C.level], ['抓到的果叽', C.grabbed], ['幸运果叽', C.bonus],
              ['稀有糖蛋', C.rare], ['最长连抓', C.bestCombo],
              ['空钩 / 被挡', C.empties + ' / ' + C.blocks]]
