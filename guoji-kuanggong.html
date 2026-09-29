@@ -1,0 +1,2619 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#FDF6EE">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>果叽矿工</title>
+<link rel="icon" href="assets/kg/s000.png">
+<link rel="apple-touch-icon" href="assets/kg/s000.png">
+<style>
+/* ============================================================
+   果叽手机小游戏 · 共享皮肤（由 build_game.py 注入到每个模板的 <style> 里）
+   色值全部取自果叽 IP 实测：奶油底 #FDF6EE / 非纯黑描边 #2E2E2E / 腮红 #F5A0A0
+   ★ 玩法模板不要改这个文件；玩法自己的布局写在自己的 <style> 里。
+   ============================================================ */
+:root{
+  --cream:#FDF6EE;        /* 页面奶油底 */
+  --card:#FFFFFF;
+  --ink:#2E2E2E;          /* 描边深灰，非纯黑 */
+  --ink-soft:#8A8078;
+  --pink:#F5A0A0;         /* 腮红 */
+  --rose:#F08080;         /* 爱心桃粉 */
+  --yellow:#F5C33B;       /* 糖蛋暖黄 */
+  --orange:#E8963C;
+  --red:#E4514F;          /* 危险 */
+  --green:#07C160;        /* 微信绿 —— 品牌元素用 */
+  --grass:#9CD46A;        /* 场景绿 */
+  --shadow:0 4px 0 rgba(46,46,46,.10), 0 10px 22px rgba(46,46,46,.10);
+  --radius:16px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--cream);
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif;
+  color:var(--ink);
+  -webkit-user-select:none;user-select:none;
+  overscroll-behavior:none;
+  touch-action:none;
+}
+#app{
+  position:fixed;inset:0;overflow:hidden;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+/* ★ 隐藏必须同时上 visibility：只靠 opacity:0 压不住带 transform 动画的合成层
+   （开始页那只上下点头的果叽会透到结算页上面去）。visibility 参与 transition 时
+   是「离散」过渡：淡出走完才真正隐藏，淡入立刻可见，观感不受影响。 */
+.hide{opacity:0 !important;pointer-events:none !important;visibility:hidden !important}
+
+/* ---------------- 画布 ---------------- */
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+
+/* ---------------- HUD ---------------- */
+#hud{
+  position:absolute;top:calc(8px + env(safe-area-inset-top));left:10px;right:10px;
+  display:flex;gap:8px;align-items:flex-start;pointer-events:none;z-index:6;
+}
+#hud,#stage,[data-hide-on-screen]{transition:opacity .22s ease,visibility .22s ease}
+.pill{
+  background:rgba(255,255,255,.92);border:2px solid rgba(46,46,46,.08);
+  border-radius:14px;padding:5px 11px;box-shadow:0 2px 0 rgba(46,46,46,.06);
+  font-size:13px;font-weight:700;line-height:1.35;white-space:nowrap;
+}
+.pill b{font-size:17px;font-variant-numeric:tabular-nums}
+.pill.right{margin-left:auto}
+#combo{
+  position:absolute;left:50%;top:38%;transform:translate(-50%,-50%) scale(.6);
+  font-size:34px;font-weight:900;color:var(--orange);opacity:0;pointer-events:none;z-index:7;
+  text-shadow:0 3px 0 #fff,0 0 12px #fff;
+}
+#combo.on{animation:comboPop .62s cubic-bezier(.2,1.5,.4,1)}
+@keyframes comboPop{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}
+  30%{opacity:1;transform:translate(-50%,-50%) scale(1.18)}
+  70%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-56%) scale(1)}
+}
+
+/* ---------------- 品牌标识（果叽 IP 的水印位） ---------------- */
+.brand{
+  display:inline-flex;align-items:center;gap:7px;
+  background:rgba(255,255,255,.94);
+  border:2px solid rgba(7,193,96,.22);border-radius:999px;
+  padding:5px 6px 5px 12px;box-shadow:0 2px 0 rgba(7,193,96,.12);
+}
+.brand .mag{
+  font-size:15px;font-weight:900;color:var(--green);line-height:1;
+  display:inline-flex;width:16px;height:16px;align-items:center;justify-content:center;
+}
+.brand .nm{font-size:13px;font-weight:800;letter-spacing:.4px;color:#3A3A3A}
+.brand .go{
+  font-size:12px;font-weight:800;color:#fff;background:var(--green);
+  border-radius:999px;padding:4px 11px;line-height:1;
+}
+.brand-tip{font-size:12px;color:var(--ink-soft);margin-top:9px;line-height:1.6}
+.brand-tip b{color:var(--green);font-weight:800}
+
+/* 果叽 IP 徽标：圆头像 + 名字 */
+.ipbadge{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,.94);border:2px solid rgba(46,46,46,.07);
+  border-radius:999px;padding:4px 13px 4px 5px;box-shadow:0 2px 0 rgba(46,46,46,.06);
+}
+.ipbadge img{
+  width:30px;height:30px;border-radius:50%;object-fit:contain;
+  background:var(--cream);border:2px solid rgba(245,195,59,.55);
+}
+.ipbadge .t{font-size:13px;font-weight:900;letter-spacing:.5px}
+.ipbadge .s{font-size:10px;color:var(--ink-soft);letter-spacing:.3px}
+
+/* ---------------- 全屏界面层 ---------------- */
+.screen{
+  position:absolute;inset:0;z-index:20;
+  display:flex;flex-direction:column;
+  /* 内容高于屏幕时，居中交给 .wrap 的 margin:auto，否则顶部会被推出屏幕且滚不回来 */
+  justify-content:flex-start;align-items:center;
+  overflow-y:auto;overflow-x:hidden;
+  padding:calc(18px + env(safe-area-inset-top)) 18px calc(18px + env(safe-area-inset-bottom));
+  background:var(--cream);
+  transition:opacity .28s ease,visibility .28s ease;
+}
+.wrap{
+  margin:auto;width:100%;max-width:420px;
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+}
+.head{display:flex;flex-direction:column;align-items:center;gap:9px;width:100%}
+
+/* ---- ① 初始化界面 ---- */
+#screen-load .logo{
+  width:132px;height:132px;object-fit:contain;
+  filter:drop-shadow(0 8px 16px rgba(46,46,46,.14));
+  animation:bob 1.5s ease-in-out infinite;
+}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-12px) rotate(2deg)}}
+.loadbar{
+  width:190px;height:12px;border-radius:999px;background:#EFE6DA;
+  border:2px solid rgba(46,46,46,.07);overflow:hidden;
+}
+.loadbar i{display:block;height:100%;width:8%;border-radius:999px;
+  background:linear-gradient(90deg,var(--yellow),var(--orange));
+  transition:width .22s ease}
+.loadtxt{font-size:12px;color:var(--ink-soft);letter-spacing:.4px}
+h1.title{
+  font-size:27px;font-weight:900;letter-spacing:1px;text-align:center;
+  background:linear-gradient(180deg,#3A3A3A,#6B625B);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+}
+.sub{font-size:12.5px;color:var(--ink-soft);letter-spacing:.3px;text-align:center;line-height:1.5}
+
+/* ---- ② 选角色界面 ---- */
+.pickgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%}
+.charcard{
+  position:relative;background:var(--card);border-radius:var(--radius);
+  border:2.5px solid rgba(46,46,46,.08);padding:7px 7px 5px;
+  display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;
+  box-shadow:0 3px 0 rgba(46,46,46,.07);transition:transform .14s,border-color .14s;
+}
+.charcard:active{transform:scale(.95)}
+.charcard img{width:100%;aspect-ratio:1;object-fit:contain}
+.charcard .nm{
+  font-size:10.5px;font-weight:700;color:var(--ink-soft);
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.charcard.sel{border-color:var(--yellow);box-shadow:0 0 0 3px rgba(245,195,59,.28),0 3px 0 rgba(46,46,46,.07)}
+.charcard.sel::after{
+  content:"✓";position:absolute;top:-9px;right:-9px;width:24px;height:24px;
+  background:var(--yellow);color:#fff;border-radius:50%;font-size:14px;font-weight:900;
+  display:flex;align-items:center;justify-content:center;border:2.5px solid #fff;
+}
+
+/* ---- 按钮 ---- */
+.btn{
+  border:none;border-radius:var(--radius);font-family:inherit;font-weight:900;
+  font-size:17px;letter-spacing:1px;color:#fff;cursor:pointer;
+  padding:14px 30px;min-width:200px;
+  background:linear-gradient(180deg,#FFC94A,#F2A93B);
+  box-shadow:0 4px 0 #D98F26,0 10px 20px rgba(232,150,60,.28);
+  transition:transform .1s,box-shadow .1s;
+}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #D98F26,0 4px 10px rgba(232,150,60,.24)}
+.btn.ghost{
+  background:#fff;color:var(--ink);box-shadow:0 3px 0 rgba(46,46,46,.10);
+  border:2.5px solid rgba(46,46,46,.08);font-size:15px;padding:12px 24px;min-width:150px;
+}
+
+/* ---- ③ 开始界面 ---- */
+#screen-start .hero{
+  width:min(52vw,196px);object-fit:contain;
+  filter:drop-shadow(0 10px 18px rgba(46,46,46,.14));
+  animation:bob 2.2s ease-in-out infinite;
+}
+.rules{display:flex;gap:9px;flex-wrap:wrap;justify-content:center}
+.rule{
+  background:#fff;border:2px solid rgba(46,46,46,.07);border-radius:13px;
+  padding:7px 12px;font-size:12px;font-weight:700;color:#5C544E;
+  display:flex;align-items:center;gap:5px;box-shadow:0 2px 0 rgba(46,46,46,.05);
+}
+.rule em{font-style:normal;font-size:15px}
+
+/* ---- 结算界面 ---- */
+.bigscore{
+  font-size:58px;font-weight:900;line-height:1;color:var(--orange);
+  font-variant-numeric:tabular-nums;text-shadow:0 3px 0 #fff,0 8px 18px rgba(232,150,60,.22);
+}
+.bigscore small{display:block;font-size:12px;font-weight:700;color:var(--ink-soft);
+  letter-spacing:1px;margin-top:6px;text-shadow:none}
+.stat{
+  background:#fff;border-radius:var(--radius);border:2.5px solid rgba(46,46,46,.07);
+  padding:14px 18px;width:100%;display:flex;flex-direction:column;gap:6px;
+  box-shadow:var(--shadow);
+}
+.stat .row{display:flex;justify-content:space-between;font-size:14px;font-weight:700}
+.stat .row span:last-child{font-variant-numeric:tabular-nums;color:var(--orange);font-size:17px;font-weight:900}
+.newbest{font-size:12px;color:var(--green);font-weight:800;text-align:center}
+
+/* ---- 矮屏 / 横屏紧凑 ---- */
+@media (max-height:660px){
+  h1.title{font-size:22px}
+  .btn{padding:11px 24px;font-size:15px;min-width:170px}
+  #screen-start .hero{width:min(38vw,140px)}
+  .pickgrid{gap:7px}
+  .wrap{gap:10px}
+}
+@media (orientation:landscape) and (max-height:520px){
+  .wrap{max-width:min(560px,80vw)}
+  #screen-start .hero{width:min(24vh,120px)}
+}
+
+#hud .av{width:24px;height:24px;border-radius:50%;object-fit:contain;background:var(--cream);
+  border:2px solid rgba(245,195,59,.6);margin-right:2px;vertical-align:-7px}
+.pill.time b{color:var(--orange);font-variant-numeric:tabular-nums}
+.pill.time.low b{color:var(--red)}
+.pill.caught b{color:var(--green)}
+
+/* 关卡进度条：挂在 HUD 下面，跟场地左右对齐（位置在 JS 里算） */
+#lvbar{
+  position:absolute;height:19px;z-index:6;pointer-events:none;
+  background:rgba(255,255,255,.94);border:2px solid rgba(46,46,46,.08);
+  border-radius:999px;box-shadow:0 2px 0 rgba(46,46,46,.06);overflow:hidden;
+}
+#lvbar i{display:block;height:100%;width:0;border-radius:999px;
+  background:linear-gradient(90deg,#FFD873,#F2A93B);transition:width .2s ease}
+#lvbar.done i{background:linear-gradient(90deg,#9CD46A,#07C160)}
+#lvbar span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:900;color:#6B625B;letter-spacing:.4px}
+
+#hint{
+  position:absolute;left:0;right:0;text-align:center;z-index:7;
+  font-size:12.5px;font-weight:800;color:#7E7268;letter-spacing:.3px;
+  transition:opacity .3s ease,visibility .3s ease;
+}
+/* ★ 提示语挂在坑口那一条空边距里，而钩子正好悬在坑口中间 ——
+   裸文字会被爪子糊住。做成一颗白色胶囊，压在爪子上也读得清，
+   而且只在第一次甩钩前出现（点过就 `.gone`）。 */
+#hint span{
+  display:inline-block;padding:5px 14px;border-radius:999px;
+  background:rgba(255,255,255,.88);border:2px solid rgba(46,46,46,.07);
+  box-shadow:0 2px 0 rgba(46,46,46,.05);
+}
+#hint.gone{opacity:0;visibility:hidden}
+
+/* ★ 主角固定成一只果叽时，选角色页只有一张卡：
+   三等分网格会把这张卡挤到最左边、右边空一大片。
+   换成 auto-fit —— 只有一张时它吃满网格，再靠 max-width 居中成一张大卡。 */
+#pickGrid{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
+#pickGrid .charcard{width:100%;max-width:178px;margin:0 auto}
+#pickGrid .charcard img{max-width:168px;margin:0 auto}
+
+@media (max-height:660px){
+  #hint{font-size:11.5px}
+  #lvbar{height:17px}
+  #lvbar span{font-size:10px}
+}
+@media (orientation:landscape) and (max-height:520px){
+  #hint{display:none}
+}
+</style>
+
+<!-- 果叽访问统计 · Umami（匿名、无 cookie、不记录个人信息） -->
+<script defer src="https://cloud.umami.is/script.js" data-website-id="23a6c515-23e1-4f47-9f5b-56c832a5190e" data-domains="xiaodaoguoguo.github.io"></script>
+<script>
+(function () {
+  var t0 = Date.now(), sent = false;
+  var slug = (location.pathname.split('/').pop() || 'index').replace(/\.html$/, '') || 'index';
+
+  window.guojiTrack = function (name, data) {
+    try { if (window.umami && window.umami.track) window.umami.track(name, data || {}); } catch (e) {}
+  };
+
+  function leave() {
+    if (sent) return;
+    sent = true;
+    window.guojiTrack('stay', { page: slug, seconds: Math.round((Date.now() - t0) / 1000) });
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') leave();
+  });
+  window.addEventListener('pagehide', leave);
+})();
+</script>
+</head>
+<body>
+<div id="app">
+  <canvas id="cv"></canvas>
+
+  <div id="hud">
+    <div class="pill"><img class="av" id="hudAv" alt="">得分 <b id="score">0</b></div>
+    <div class="pill caught">抓到 <b id="caught">0</b></div>
+    <div class="pill time right" id="timePill"><b id="time">62</b>s</div>
+  </div>
+  <div id="lvbar" data-hide-on-screen><i id="lvFill"></i><span id="lvTxt">第 1 关</span></div>
+  <div id="combo"></div>
+  <div id="hint" data-hide-on-screen><span>点屏幕 · 甩出钩子抓果叽</span></div>
+
+  <div class="screen" id="screen-load">
+    <div class="wrap">
+      <img class="logo" id="loadLogo" alt="果叽">
+      <h1 class="title">果叽矿工</h1>
+      <div class="ipbadge" id="loadIp"></div>
+      <div class="brand"><span class="mag"></span><span class="nm">麦次元</span><span class="go">搜索</span></div>
+      <div class="loadbar"><i id="loadBar"></i></div>
+      <div class="loadtxt" id="loadTxt">正在唤醒果叽…</div>
+    </div>
+  </div>
+
+  <div class="screen hide" id="screen-pick">
+    <div class="wrap">
+      <div class="head">
+        <div class="ipbadge" id="pickIp"></div>
+        <h1 class="title">你的抓宝小果叽</h1>
+        <div class="sub gsub"></div>
+      </div>
+      <div class="pickgrid" id="pickGrid"></div>
+      <div class="brand-tip" style="text-align:center">微信搜索公众号 <b>麦次元</b>，解锁更多可爱的果叽糖蛋</div>
+      <button class="btn" id="btnPickOk">就是你了</button>
+    </div>
+  </div>
+
+  <div class="screen hide" id="screen-start">
+    <div class="wrap">
+      <div class="ipbadge" id="startIp"></div>
+      <img class="hero" id="heroImg" alt="果叽">
+      <h1 class="title">果叽矿工</h1>
+      <div class="rules" id="rules"></div>
+      <button class="btn" id="btnStart">下坑挖宝</button>
+      <div style="text-align:center">
+        <div class="brand"><span class="mag"></span><span class="nm">麦次元</span><span class="go">搜索</span></div>
+        <div class="brand-tip">微信搜索公众号 <b>麦次元</b>，解锁更多可爱的果叽糖蛋</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen hide" id="screen-over">
+    <div class="wrap">
+      <img id="overImg" style="width:min(30vw,116px);object-fit:contain" alt="果叽">
+      <h1 class="title" id="overTitle">果叽玩累啦</h1>
+      <div class="bigscore"><span id="overScore">0</span><small>本局得分</small></div>
+      <div class="stat" id="overStat"></div>
+      <div class="newbest hide" id="newBest">🎉 破纪录啦！</div>
+      <button class="btn" id="btnAgain">再挖一局</button>
+      <div class="brand"><span class="mag"></span><span class="nm">麦次元</span><span class="go">搜索</span></div>
+    </div>
+  </div>
+</div>
+
+<script>var MANIFEST = {"抓娃娃":{"slug":"抓娃娃","cn":"抓娃娃","roles":["hero"],"src":"挖矿.gif","frames":14,"frameMs":[40,40,40,40,40,40,40,40,40,40,40,40,40,40],"loopMs":560,"cols":6,"cell":240,"gap":4,"ground":228,"box":[0.0,0.0208,0.9708,0.9875],"img":"s060.webp","b64p":"wakuang.gif","pxKB":106.7},"guoji-4":{"slug":"guoji-4","cn":"要这个","roles":["small"],"src":"13433923992199049.gif","frames":4,"frameMs":[80,80,80,80],"loopMs":320,"cols":6,"cell":192,"gap":4,"ground":182,"box":[0.0042,0.0167,0.975,0.9792],"img":"s004.webp","b64p":"s005.webp","pxKB":40.0},"guoji-5":{"slug":"guoji-5","cn":"记得回我","roles":["small"],"src":"13433924016634892.gif","frames":6,"frameMs":[80,80,80,80,80,80],"loopMs":480,"cols":6,"cell":192,"gap":4,"ground":182,"box":[0.0042,0.0208,0.9833,0.9917],"img":"s006.webp","b64p":"s007.webp","pxKB":81.3},"guoji-6":{"slug":"guoji-6","cn":"随缘吧","roles":["small"],"src":"13433927423581705.gif","frames":6,"frameMs":[80,80,80,80,80,80],"loopMs":480,"cols":6,"cell":192,"gap":4,"ground":182,"box":[0.0125,0.0042,0.9875,0.9917],"img":"s008.webp","b64p":"s009.webp","pxKB":63.3},"guoji-13":{"slug":"guoji-13","cn":"开车兜风","roles":["small"],"src":"21.gif","frames":8,"frameMs":[60,60,60,60,60,60,60,60],"loopMs":480,"cols":6,"cell":192,"gap":4,"ground":182,"box":[0.0042,0.0917,0.9917,0.9875],"img":"s010.webp","b64p":"s011.webp","pxKB":40.3},"guoji-7":{"slug":"guoji-7","cn":"戴着耳机","roles":["small"],"src":"13433927450423794.gif","frames":7,"frameMs":[100,100,100,100,100,100,100],"loopMs":700,"cols":6,"cell":192,"gap":4,"ground":182,"box":[0.0667,0.1458,0.9333,0.9125],"img":"s012.webp","b64p":"s013.webp","pxKB":51.8},"guoji-2":{"slug":"guoji-2","cn":"一鸭一鸭哟","roles":["mid"],"src":"13433923776858960.gif","frames":6,"frameMs":[100,100,100,100,100,100],"loopMs":600,"cols":6,"cell":192,"gap":4,"ground":182,"box":[0.0458,0.0042,0.975,0.9625],"img":"s014.webp","b64p":"s015.webp","pxKB":52.9},"guoji-8":{"slug":"guoji-8","cn":"学会了吗","roles":["mid"],"src":"13433927473325647.gif","frames":8,"frameMs":[100,100,100,100,100,100,100,100],"loopMs":800,"cols":6,"cell":192,"gap":4,"ground":182,"box":[0.0542,0.025,0.9417,0.9542],"img":"s016.webp","b64p":"s017.webp","pxKB":78.7},"guoji-9":{"slug":"guoji-9","cn":"拍一拍你","roles":["mid"],"src":"13433927522837304.gif","frames":8,"frameMs":[80,80,80,80,80,80,80,80],"loopMs":640,"cols":6,"cell":192,"gap":4,"ground":182,"box":[0.0,0.0333,0.9875,0.9583],"img":"s018.webp","b64p":"s019.webp","pxKB":59.4},"guoji-17":{"slug":"guoji-17","cn":"太棒啦","roles":["mid"],"src":"果叽糖蛋跳一跳\\13433998524082580.gif","frames":7,"frameMs":[80,80,80,80,80,80,80],"loopMs":560,"cols":6,"cell":192,"gap":4,"ground":182,"box":[0.0542,0.0208,0.9708,0.9833],"img":"s020.webp","b64p":"s021.webp","pxKB":58.7},"guoji-11":{"slug":"guoji-11","cn":"草丛探头","roles":["mid"],"src":"13434077379404294.gif","frames":7,"frameMs":[100,100,100,100,100,100,100],"loopMs":700,"cols":6,"cell":192,"gap":4,"ground":182,"box":[0.0167,0.0125,0.9792,0.9917],"img":"s022.webp","b64p":"s023.webp","pxKB":50.9},"guoji":{"slug":"guoji","cn":"冰淇淋","roles":["big"],"src":"13433923691818031.gif","frames":6,"frameMs":[80,80,80,80,80,80],"loopMs":480,"cols":6,"cell":192,"gap":4,"ground":182,"box":[0.0125,0.0333,0.9875,0.95],"img":"s024.webp","b64p":"s025.webp","pxKB":48.3},"我我我":{"slug":"我我我","cn":"我我我","roles":["big"],"src":"我我我.gif","frames":7,"frameMs":[100,100,100,100,100,100,100],"loopMs":700,"cols":6,"cell":192,"gap":4,"ground":182,"box":[0.0125,0.025,0.9917,0.9708],"img":"s026.webp","b64p":"s027.webp","pxKB":53.7},"我也要":{"slug":"我也要","cn":"我也要","roles":["big"],"src":"果叽飞飞\\我也要.gif","frames":4,"frameMs":[60,60,60,60],"loopMs":240,"cols":6,"cell":192,"gap":4,"ground":182,"box":[0.0042,0.0458,0.9583,0.9667],"img":"s028.webp","b64p":"s029.webp","pxKB":33.5},"guoji-3":{"slug":"guoji-3","cn":"我来了","roles":["big"],"src":"13433923822095513.gif","frames":5,"frameMs":[100,100,100,100,100],"loopMs":500,"cols":6,"cell":192,"gap":4,"ground":182,"box":[0.0333,0.0208,0.9667,0.9917],"img":"s030.webp","b64p":"s031.webp","pxKB":44.7},"桃子":{"slug":"桃子","cn":"桃子","roles":["food"],"src":"果叽干饭\\桃子.gif","frames":1,"frameMs":[1000],"loopMs":1000,"cols":1,"cell":192,"gap":0,"ground":182,"box":[0.0167,0.0167,0.9917,0.9875],"img":"s032.webp","b64p":"s032.webp","pxKB":12.6},"蛋糕":{"slug":"蛋糕","cn":"蛋糕","roles":["food"],"src":"果叽干饭\\蛋糕.gif","frames":6,"frameMs":[80,80,80,80,80,80],"loopMs":480,"cols":6,"cell":192,"gap":4,"ground":182,"box":[0.0,0.0,0.9958,0.9958],"img":"s034.webp","b64p":"s035.webp","pxKB":72.8},"爆米花":{"slug":"爆米花","cn":"爆米花","roles":["food"],"src":"果叽干饭\\爆米花.gif","frames":8,"frameMs":[80,80,80,80,80,80,80,80],"loopMs":640,"cols":6,"cell":192,"gap":4,"ground":182,"box":[0.0292,0.0208,0.9708,0.9792],"img":"s036.webp","b64p":"s037.webp","pxKB":76.9},"梨":{"slug":"梨","cn":"梨","roles":["food"],"src":"果叽干饭\\梨.gif","frames":1,"frameMs":[1000],"loopMs":1000,"cols":1,"cell":192,"gap":0,"ground":182,"box":[0.0125,0.0167,0.9833,0.9875],"img":"s038.webp","b64p":"s038.webp","pxKB":12.5},"糖蛋来了":{"slug":"糖蛋来了","cn":"糖蛋来了","roles":["rare"],"src":"果叽飞飞\\糖蛋来了.gif","frames":8,"frameMs":[80,80,80,80,80,80,80,80],"loopMs":640,"cols":6,"cell":192,"gap":4,"ground":182,"box":[0.0292,0.0125,0.9417,0.9792],"img":"s040.webp","b64p":"s041.webp","pxKB":47.9},"guoji-16":{"slug":"guoji-16","cn":"黄色糖蛋","roles":["rare"],"src":"果叽糖蛋跳一跳\\13433998476577271.gif","frames":6,"frameMs":[80,80,80,80,80,80],"loopMs":480,"cols":6,"cell":192,"gap":4,"ground":182,"box":[0.0,0.0875,0.9875,0.9792],"img":"s042.webp","b64p":"s043.webp","pxKB":54.7},"投降":{"slug":"投降","cn":"投降降","roles":["danger"],"src":"投降.gif","frames":6,"frameMs":[80,80,80,80,80,80],"loopMs":480,"cols":6,"cell":192,"gap":4,"ground":182,"box":[0.0083,0.0208,0.9979,0.9854],"img":"s044.webp","b64p":"s045.webp","pxKB":55.4},"anger":{"slug":"anger","cn":"anger","roles":["danger"],"src":"果果大作战\\deco\\anger.png","frames":1,"frameMs":[1000],"loopMs":1000,"cols":1,"cell":192,"gap":0,"ground":182,"box":[0.0586,0.0664,0.9453,0.9297],"img":"s046.webp","b64p":"s046.webp","pxKB":11.3},"guoji-14":{"slug":"guoji-14","cn":"没衣服穿","roles":["bonus"],"src":"28.jpg","frames":1,"frameMs":[1000],"loopMs":1000,"cols":1,"cell":192,"gap":0,"ground":182,"box":[0.0,0.0476,0.9782,0.9623],"img":"s048.webp","b64p":"s048.webp","pxKB":12.7},"song":{"slug":"song","cn":"song","roles":["block"],"src":"果果大作战\\deco\\song.png","frames":1,"frameMs":[1000],"loopMs":1000,"cols":1,"cell":192,"gap":0,"ground":182,"box":[0.0586,0.1133,0.9375,0.8789],"img":"s050.webp","b64p":"s050.webp","pxKB":8.7},"book":{"slug":"book","cn":"book","roles":["block"],"src":"果果大作战\\deco\\book.png","frames":1,"frameMs":[1000],"loopMs":1000,"cols":1,"cell":192,"gap":0,"ground":182,"box":[0.0586,0.1094,0.9336,0.8789],"img":"s052.webp","b64p":"s052.webp","pxKB":7.7},"driving":{"slug":"driving","cn":"driving","roles":["block"],"src":"果果大作战\\deco\\driving.png","frames":1,"frameMs":[1000],"loopMs":1000,"cols":1,"cell":192,"gap":0,"ground":182,"box":[0.0508,0.0938,0.9453,0.9023],"img":"s054.webp","b64p":"s054.webp","pxKB":5.5},"hat":{"slug":"hat","cn":"hat","roles":["block"],"src":"果果大作战\\deco\\hat.png","frames":1,"frameMs":[1000],"loopMs":1000,"cols":1,"cell":192,"gap":0,"ground":182,"box":[0.0898,0.0586,0.9062,0.9375],"img":"s056.webp","b64p":"s056.webp","pxKB":9.0},"shy":{"slug":"shy","cn":"shy","roles":["block"],"src":"果果大作战\\deco\\shy.png","frames":1,"frameMs":[1000],"loopMs":1000,"cols":1,"cell":192,"gap":0,"ground":182,"box":[0.0547,0.1133,0.9453,0.8789],"img":"s058.webp","b64p":"s058.webp","pxKB":5.9}};
+var SLOTS = {"hero": ["抓娃娃"], "small": ["guoji-4", "guoji-5", "guoji-6", "guoji-13", "guoji-7"], "mid": ["guoji-2", "guoji-8", "guoji-9", "guoji-17", "guoji-11"], "big": ["guoji", "我我我", "我也要", "guoji-3"], "food": ["桃子", "蛋糕", "爆米花", "梨"], "rare": ["糖蛋来了", "guoji-16"], "danger": ["投降", "anger"], "bonus": ["guoji-14"], "block": ["song", "book", "driving", "hat", "shy"]};
+var BRAND = {"name": "麦次元", "hint": "解锁更多可爱的果叽糖蛋", "ip": "果叽", "ipSub": "糖蛋表情包", "title": "果叽矿工"};
+var META = {"id": "miner", "title": "果叽矿工", "sub": "果叽守着坑口，甩钩把坑里的果叽抓上来", "rules": [["👆", "点屏幕甩出钩子"], ["🚧", "躲开挡路的果叽（撞飞它要白费一钩）"], ["🍀", "抓够目标分过关 · 幸运果叽额外 ＋200"]], "over": ["果叽挖到宝啦！", "果叽挖得不错", "果叽才刚下坑…"], "engine": "canvas", "pick": true};</script>
+<script>/* ============================================================
+   果叽小游戏 · 共享运行时（由 build_game.py 注入，玩法模板不要改）
+   ------------------------------------------------------------
+   提供：素材解码 / 帧动画 / 画布自适应 / 界面切换 / 选角色 /
+        音效 / 最高分 / 主循环 / 验收调试桥
+   玩法模板只需在末尾调用一次：
+     GQ.boot({
+       id:'2048',                        // 唯一标识（最高分存档键用它）
+       init(GQ){},                       // 每局开始：搭场景（可返回一个 Promise）
+       update(dt){},                     // 逻辑（仅 state==='playing' 时被调）
+       draw(dt){},                       // 绘制（可选；DOM 玩法不实现）
+       probe(){ return {} },             // 给验收脚本读的自定义状态（可选）
+       forceFinish(){},                  // 立刻结束一局（验收用，可选）
+       autoPlay(ms){ return Promise }    // 自动玩 ms 毫秒（验收用，可选）
+     })
+   ============================================================ */
+(function () {
+  'use strict';
+
+  /* 兜底：prelude 没注入时也别整页崩掉（浏览器直接开模板时能看到提示） */
+  var MANIFEST = window.MANIFEST || {};
+  var SLOTS = window.SLOTS || {};
+  var BRAND = window.BRAND || { name: '麦次元', hint: '解锁更多可爱的果叽糖蛋', ip: '果叽', ipSub: '糖蛋表情包', title: '果叽小游戏' };
+  var META = window.META || { id: 'demo', title: '果叽小游戏', sub: '' };
+
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  function setText(sel, v) { var e = $(sel); if (e) e.textContent = String(v); }
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function rr(a, b) { return a + Math.random() * (b - a); }
+  function ri(a, b) { return Math.floor(a + Math.random() * (b - a + 1)); }
+  function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = ri(0, i), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+
+  /* ---------------- 音效：WebAudio 现场合成，零音频文件 ---------------- */
+  var AC = null;
+  function beep(freqs, dur, type, vol) {
+    try {
+      if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+      if (AC.state === 'suspended') AC.resume();
+      var t0 = AC.currentTime;
+      freqs.forEach(function (f, i) {
+        var o = AC.createOscillator(), g = AC.createGain();
+        o.type = type || 'sine'; o.frequency.value = f;
+        var s = t0 + i * dur * 0.62;
+        g.gain.setValueAtTime(0.0001, s);
+        g.gain.exponentialRampToValueAtTime(vol || 0.16, s + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001, s + dur);
+        o.connect(g); g.connect(AC.destination); o.start(s); o.stop(s + dur + 0.02);
+      });
+    } catch (e) { /* 静音环境（无用户手势 / 无音频设备）不该影响游戏 */ }
+  }
+  var SFX = {
+    tap: function () { beep([660, 880], 0.07) },
+    ok: function () { beep([720, 960], 0.10) },
+    pop: function () { beep([880, 1180], 0.07) },
+    combo: function () { beep([880, 1320, 1760], 0.09) },
+    bad: function () { beep([190, 110], 0.20, 'sawtooth') },
+    win: function () { beep([660, 880, 1100, 1320], 0.13) },
+    lose: function () { beep([520, 400, 300, 220], 0.17, 'triangle') }
+  };
+
+  /* ---------------- 画布 ---------------- */
+  var cv = $('#cv'), ctx = cv ? cv.getContext('2d') : null;
+  var W = 0, H = 0, DPR = 1, game = null;
+
+  function resize() {
+    if (cv) {
+      var r = cv.getBoundingClientRect();
+      DPR = Math.min(window.devicePixelRatio || 1, 3);
+      W = Math.max(1, Math.round(r.width));
+      H = Math.max(1, Math.round(r.height));
+      cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    } else {
+      W = window.innerWidth; H = window.innerHeight;
+    }
+    GQ.W = W; GQ.H = H; GQ.DPR = DPR;
+    GQ.viewW = window.innerWidth; GQ.viewH = window.innerHeight;
+    if (game && game.layout) game.layout();
+  }
+
+  /* ---------------- 素材 ---------------- */
+  var ASSETS = {};
+  /* ---------------- 素材地址 ----------------
+     素材不再内嵌进 HTML，改成独立文件（HTML 从 1.67MB 瘦到 ~126KB，首屏可秒开）。
+     素材地址有多个候选，启动时用一张 4KB 的探针图同时探测，谁先回来就用谁：
+       · jsDelivr 各节点 —— 与 GitHub Pages 不同域名，能绕开 Pages 单连接的限速
+       · 同域 assets/kg/ —— 排在最后做兜底，保证一定玩得上
+     实测：晚高峰 Pages 只有 43KB/s，CDN 有 219KB/s；凌晨两者都能到 1MB/s 以上。
+     网络状况随时段剧烈变化，所以不单押一个节点。
+     （jsDelivr 对 @main 分支缓存 7 天：素材若有改动，把目录升级为 kg2 并改下面的路径） */
+  var ASSET_BASES = [
+    'https://testingcf.jsdelivr.net/gh/xiaodaoguoguo/xdg@main/assets/kg/',
+    'https://gcore.jsdelivr.net/gh/xiaodaoguoguo/xdg@main/assets/kg/',
+    'https://cdn.jsdelivr.net/gh/xiaodaoguoguo/xdg@main/assets/kg/',
+    'assets/kg/'
+  ];
+  var ASSET_PROBE = 's054.webp';   /* 4KB，专用于选路探测 */
+  var ASSET_BASE = ASSET_BASES[ASSET_BASES.length - 1];
+
+  /* 竞速选路：谁先成功返回探针就选谁；全部失败则退回同域兜底 */
+  function pickAssetBase(cb) {
+    var n = ASSET_BASES.length, failed = 0, done = false;
+    function use(b) { if (done) return; done = true; ASSET_BASE = b; cb(b); }
+    ASSET_BASES.forEach(function (b) {
+      var im = new Image();
+      var to = setTimeout(function () { miss(); }, 9000);
+      function miss() {
+        clearTimeout(to); im.onload = im.onerror = null;
+        if (++failed === n) use(ASSET_BASES[n - 1]);
+      }
+      im.onload = function () { clearTimeout(to); use(b); };
+      im.onerror = miss;
+      im.src = b + ASSET_PROBE;
+    });
+  }
+
+  function loadAssets() {
+    var keys = Object.keys(MANIFEST);
+    var done = 0;
+    return new Promise(function (resolve) {
+      if (!keys.length) return resolve();
+      pickAssetBase(function () {
+      keys.forEach(function (k) {
+        var m = MANIFEST[k], rec = { meta: m, img: null, portrait: null, ready: false };
+        ASSETS[k] = rec;
+        var nmImg = m.img || m.b64s;
+        var nmPor = m.b64p || m.img || m.b64s;
+        var im = new Image();
+        /* 单帧素材的立绘与精灵表本来就是同一张图 —— 复用同一个对象，
+           省一次请求、一次解码、一份位图内存 */
+        var same = (nmPor === nmImg);
+        var po = same ? im : new Image();
+        var left = same ? 1 : 2;
+
+        function tick() {
+          if (--left) return;
+          rec.img = im; rec.portrait = po; rec.ready = true;
+          var bar = $('#loadBar'); if (bar) bar.style.width = Math.round(++done / keys.length * 100) + '%';
+          var lt = $('#loadTxt');
+          if (lt && done < keys.length) lt.textContent = '正在唤醒果叽… ' + done + '/' + keys.length;
+          if (done === keys.length) resolve();
+        }
+
+        /* 已是完整地址的内联小图（data URI）不再拼前缀，否则会被拼成
+           assets/xx/data:image/...;base64,... 而 404 */
+        function urlAt(i, name) {
+          return /^(data:|blob:|https?:|\/\/)/.test(name) ? name : ASSET_BASES[i] + name;
+        }
+        /* 先走选中的源，失败则依次回退后续候选，最后一个是同域（保证一定玩得上） */
+        function loadInto(img, name) {
+          if (!name) { tick(); return; }
+          var i = ASSET_BASES.indexOf(ASSET_BASE); if (i < 0) i = 0;
+          img.onload = tick;
+          img.onerror = function () {
+            if (++i < ASSET_BASES.length) img.src = urlAt(i, name);
+            else { tick(); }
+          };
+          img.src = urlAt(i, name);
+        }
+
+        loadInto(im, nmImg);
+        if (!same) loadInto(po, nmPor);
+      });
+      });
+    });
+  }
+
+  /* ---------------- 帧动画：时间 -> 帧号 ----------------
+     用精灵表而不是 <img src=gif>，才能按游戏自己的时钟控帧：
+     暂停 / 死亡定格 / 命中停顿都靠它。clock 冻结 = 画面定格。
+     ------------------------------------------------------- */
+  function frameAt(meta, ms) {
+    var d = meta.frameMs || [100], loop = meta.loopMs || d.reduce(function (a, b) { return a + b }, 0) || 1;
+    var t = ms % loop; if (t < 0) t += loop;
+    var acc = 0;
+    for (var i = 0; i < d.length; i++) { acc += d[i]; if (t < acc) return i; }
+    return d.length - 1;
+  }
+
+  /* 画一帧素材：h = 画面高（px），anchor = 'bottom'（脚底落在 y）| 'center' */
+  function drawFrame(slug, fi, x, y, h, opt) {
+    opt = opt || {};
+    var a = ASSETS[slug];
+    if (!a || !a.img || !ctx) return;
+    var m = a.meta, cell = m.cell || 256, cols = m.cols || 1, gap = m.gap || 0;
+    var n = m.frames || 1, s = h / cell;
+    var f = ((Math.round(fi) % n) + n) % n;
+    var sx = gap + (f % cols) * (cell + gap);
+    var sy = gap + Math.floor(f / cols) * (cell + gap);
+    var dw = cell * s, dh = cell * s;
+    var oy = opt.anchor === 'center' ? -dh / 2 : -(m.ground || cell * 0.95) * s;
+    ctx.save();
+    ctx.translate(x, y);
+    if (opt.rot) ctx.rotate(opt.rot);
+    if (opt.scaleY) ctx.scale(1, opt.scaleY);
+    if (opt.flip) ctx.scale(-1, 1);
+    if (opt.alpha != null) ctx.globalAlpha = opt.alpha;
+    ctx.drawImage(a.img, sx, sy, cell, cell, -dw / 2, oy, dw, dh);
+    ctx.restore();
+  }
+
+  /* ---------------- 品牌标识注入 ---------------- */
+  var MAG_SVG = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
+    '<circle cx="7" cy="7" r="4.7" fill="none" stroke="currentColor" stroke-width="2"/>' +
+    '<line x1="10.5" y1="10.5" x2="14.2" y2="14.2" stroke="currentColor" ' +
+    'stroke-width="2" stroke-linecap="round"/></svg>';
+  function injectBrand() {
+    $$('.brand .mag').forEach(function (e) { e.innerHTML = MAG_SVG });
+    $$('.brand .nm').forEach(function (e) { e.textContent = BRAND.name });
+    $$('.brand-tip').forEach(function (e) {
+      e.innerHTML = '微信搜索公众号 <b>' + BRAND.name + '</b>，' + BRAND.hint;
+    });
+    document.title = BRAND.title || META.title || document.title;
+  }
+  function ipBadge(el, slug) {
+    if (!el) return;
+    var a = ASSETS[slug]; if (!a) return;
+    el.innerHTML = '<img src="' + a.portrait.src + '" alt="' + BRAND.ip + '">' +
+      '<div style="display:flex;flex-direction:column;line-height:1.15">' +
+      '<span class="t">' + BRAND.ip + '</span><span class="s">' + BRAND.ipSub + '</span></div>';
+  }
+
+  /* ---------------- 界面层 ---------------- */
+  var SCREENS = [];
+  function collectScreens() { SCREENS = $$('.screen').map(function (e) { return e.id }) }
+  /* 界面层出现时，把 HUD / 棋盘一并收起来。
+     不只是好看：DOM 玩法里带 3D 变换的卡片会自成一个合成层，
+     在 Chromium 里能盖到更高 z-index 的界面层上面去 —— 收起来才彻底干净。 */
+  function show(id) {
+    SCREENS.forEach(function (s) { var e = $('#' + s); if (e) e.classList.toggle('hide', s !== id) });
+    $$('#hud, #combo, #stage, [data-hide-on-screen]').forEach(function (e) {
+      e.classList.toggle('hide', !!id);
+    });
+    GQ.screen = id || null;
+  }
+
+  /* ---------------- 选角色 ----------------
+     玩法在注册表里写了 "pick": false 时（只有一位主角的游戏），
+     整套选角色流程都跳过：加载完直接进开始页，主角恒为 hero 槽的第一位。 */
+  var PICK = META.pick !== false;
+  var picked = 0;
+  function heroKeys() {
+    var k = (SLOTS.hero && SLOTS.hero.length) ? SLOTS.hero.slice() : Object.keys(ASSETS);
+    return PICK ? k : k.slice(0, 1);
+  }
+  function heroSlug() { var k = heroKeys(); return k[Math.min(picked, k.length - 1)] || null }
+  function buildPick(onPick) {
+    var grid = $('#pickGrid'); if (!grid) return;
+    grid.innerHTML = '';
+    heroKeys().forEach(function (slug, i) {
+      var a = ASSETS[slug]; if (!a) return;
+      var d = document.createElement('div');
+      d.className = 'charcard' + (i === picked ? ' sel' : '');
+      d.dataset.slug = slug;
+      var img = document.createElement('img');
+      img.src = a.portrait.src; img.alt = a.meta.cn || slug;
+      var nm = document.createElement('div');
+      nm.className = 'nm'; nm.textContent = a.meta.cn || slug;
+      d.appendChild(img); d.appendChild(nm);
+      d.addEventListener('pointerdown', function () {
+        picked = i;
+        $$('.charcard', grid).forEach(function (e, j) { e.classList.toggle('sel', j === i) });
+        SFX.tap();
+        if (onPick) onPick(slug, i);
+      });
+      grid.appendChild(d);
+    });
+  }
+
+  /* ---------------- 最高分 ---------------- */
+  function bestKey() { return 'guoji_best_' + META.id }
+  function best() { try { return +(localStorage.getItem(bestKey()) || 0) } catch (e) { return 0 } }
+  function setBest(v) { try { localStorage.setItem(bestKey(), v) } catch (e) { } }
+
+  /* ---------------- 主循环 ---------------- */
+  var last = 0, errs = [];
+  function note(e) { var m = String(e && e.message || e); if (errs.indexOf(m) < 0 && errs.length < 12) errs.push(m) }
+  function loop(ts) {
+    requestAnimationFrame(loop);
+    if (!last) last = ts;
+    var dt = Math.min((ts - last) / 1000, 0.05); last = ts;
+    if (GQ.state === 'playing') {
+      GQ.t += dt;
+      if (!GQ.clockFrozen) GQ.clock += dt * 1000;
+      if (game && game.update) { try { game.update(dt) } catch (e) { note(e) } }
+    }
+    if (game && game.draw) { try { game.draw(dt) } catch (e) { note(e) } }
+  }
+
+  /* ---------------- 公开 API ---------------- */
+  var GQ = {
+    MANIFEST: MANIFEST, SLOTS: SLOTS, BRAND: BRAND, META: META,
+    cv: cv, ctx: ctx,
+    W: 0, H: 0, DPR: 1, viewW: 0, viewH: 0,
+    t: 0, clock: 0, clockFrozen: false,
+    state: 'load', screen: null, score: 0, ready: false,
+    frameAt: frameAt,
+    /* 通用小工具：玩法模板可以直接用，省得各自重写一遍 */
+    util: { $: $, $$: $$, setText: setText, clamp: clamp, rr: rr, ri: ri, shuffle: shuffle },
+    drawFrame: function (slug, fi, x, y, h, opt) { drawFrame(slug, fi, x, y, h, opt) },
+    img: function (slug) { var a = ASSETS[slug]; return a ? a.img : null },
+    portrait: function (slug) { var a = ASSETS[slug]; return a ? a.portrait : null },
+    meta: function (slug) { var a = ASSETS[slug]; return a ? a.meta : null },
+    slot: function (name) { return (SLOTS[name] || []).slice() },
+    slot1: function (name) { return (SLOTS[name] || [])[0] || null },
+    pool: function (list) {
+      return (list || []).filter(function (k) { return ASSETS[k] }).map(function (k) { return { slug: k, meta: ASSETS[k].meta } });
+    },
+    hero: heroSlug,
+    heroes: heroKeys,
+    picked: function () { return picked },
+    show: show, screens: function () { return SCREENS.slice() },
+    ipBadge: ipBadge,
+    SFX: SFX,
+    best: best, setBest: setBest,
+    syncHud: function () {
+      setText('#score', GQ.score);
+      setText('#best2', best());
+    },
+    /* ---- 验收调试桥 ---- */
+    probe: function () {
+      var d = {};
+      try { d = (game && game.probe) ? game.probe() : {} } catch (e) { d = { probeError: String(e && e.message) } }
+      return { state: GQ.state, score: GQ.score, clock: Math.round(GQ.clock), detail: d };
+    },
+    forceFinish: function () { try { return game && game.forceFinish ? game.forceFinish() : GQ.endGame({ score: GQ.score }) } catch (e) { note(e) } },
+    autoPlay: function (ms, opt) { try { return (game && game.autoPlay) ? game.autoPlay(ms, opt) : Promise.resolve(null) } catch (e) { note(e); return Promise.resolve(null) } },
+    /* ★ 玩法可选的「定向动作」钩子 —— 验收脚本做**机制级**测试用。
+       为什么需要它：`autoPlay` 走的是"最优策略"，而最优策略往往会绕开
+       设计上的负反馈路径（比如矿工会主动躲开挡路的东西），
+       于是那条路径到交付都没在真机上跑过一次。`act(name)` 让玩法自己
+       提供"我就专门去触发那条路径"的动作（返回 Promise）。
+       玩法没实现 game.act 时返回 null，脚本跳过这段检查。 */
+    act: function (name, arg) {
+      try { return (game && game.act) ? game.act(name, arg) : null } catch (e) { note(e); return null }
+    },
+    errors: function () { return errs.slice() },
+
+    /* ---- 开局 / 收局 ---- */
+    startGame: function () {
+      GQ.score = 0; GQ.t = 0; GQ.clock = 0; GQ.clockFrozen = false;
+      GQ.state = 'playing';
+      show(null);
+      GQ.syncHud();
+      var r = game && game.init ? game.init(GQ) : null;
+      SFX.tap();
+      return r;
+    },
+    endGame: function (res) {
+      res = res || {};
+      GQ.state = 'over';
+      var sc = res.score != null ? res.score : GQ.score;
+      GQ.score = sc;
+      var b = best(), isNew = sc > b;
+      if (isNew) { b = sc; setBest(b) }
+      setText('#overScore', sc);
+      setText('#best2', b);
+      setText('#overTitle', res.title || '果叽玩累啦');
+      var st = $('#overStat');
+      if (st) {
+        var rows = (res.rows || []).concat([['历史最高', b]]);
+        st.innerHTML = rows.map(function (r) {
+          return '<div class="row"><span>' + r[0] + '</span><span>' + r[1] + '</span></div>';
+        }).join('');
+      }
+      var nb = $('#newBest'); if (nb) nb.classList.toggle('hide', !isNew);
+      var img = $('#overImg'); if (img) { var h = heroSlug(); if (ASSETS[h]) img.src = ASSETS[h].portrait.src; }
+      SFX.lose();
+      show('screen-over');
+    },
+
+    boot: function (g) {
+      game = g;
+      collectScreens();
+      injectBrand();
+      /* 玩法文案由注册表驱动：开始页三条说明 + 各界面副标题 */
+      var rl = $('#rules');
+      if (rl && META.rules && META.rules.length) {
+        rl.innerHTML = META.rules.map(function (r) {
+          return '<div class="rule"><em>' + r[0] + '</em>' + r[1] + '</div>';
+        }).join('');
+      }
+      if (META.sub) $$('.gsub').forEach(function (e) { e.textContent = META.sub });
+      show('screen-load');          // 开局先让 HUD / 棋盘收起来
+      resize();
+      window.addEventListener('resize', function () { resize() });
+      window.addEventListener('orientationchange', function () { setTimeout(resize, 260) });
+
+      var loadTxt = $('#loadTxt');
+      function refreshHero() {
+        var s = heroSlug(); if (!ASSETS[s]) return;
+        var hi = $('#heroImg'); if (hi) hi.src = ASSETS[s].portrait.src;
+        var lg = $('#loadLogo'); if (lg) lg.src = ASSETS[s].portrait.src;
+        ipBadge($('#pickIp'), s); ipBadge($('#startIp'), s);
+      }
+      loadAssets().then(function () {
+        var keys = Object.keys(ASSETS).filter(function (k) { return ASSETS[k].ready });
+        if (!keys.length) { if (loadTxt) loadTxt.textContent = '素材没加载出来，请重新生成游戏'; return }
+        var h = heroSlug() || keys[0];
+        var logo = $('#loadLogo'); if (logo) logo.src = ASSETS[h].portrait.src;
+        setText('#best2', best());
+        if (PICK) buildPick(refreshHero);
+        refreshHero();
+
+        GQ.ready = true;
+        if (loadTxt) loadTxt.textContent = '果叽准备好了！';
+        setTimeout(function () { show(PICK ? 'screen-pick' : 'screen-start') }, 320);
+      });
+
+      function on(id, fn) { var e = $('#' + id); if (e) e.addEventListener('click', fn) }
+      on('btnPickOk', function () { refreshHero(); show('screen-start'); SFX.tap() });
+      on('btnChange', function () { show(PICK ? 'screen-pick' : 'screen-start') });
+      on('btnStart', function () { GQ.startGame() });
+      on('btnAgain', function () { GQ.startGame() });
+      on('btnBack', function () { show(PICK ? 'screen-pick' : 'screen-start') });
+
+      requestAnimationFrame(loop);
+    }
+  };
+  window.GQ = GQ;
+})();
+</script>
+<script>
+/* ============================================================
+   玩法：果叽矿工（黄金矿工式）
+   ------------------------------------------------------------
+   果叽站在坑口的平台上，脚下垂下一条带爪子的绳子。
+   绳子的角度以**恒定角速度**左右摆动（像钟摆，但两端不作停留）——
+   玩家要的就是「等它摆到对的角度再甩出去」这一下判断。
+
+     swing ：摆动瞄准
+     甩出  ：钩子沿当前角度射出去，撞到果叽就勾住，撞到坑壁/到底就空手
+     收回  ：★ 核心张力 —— 收回速度 = 基速 ÷ 重量系数，
+             好东西又沉又慢，抓什么都得算「够不够时间再下去一趟」
+
+   坑里一共三种东西：
+     · 战利品（小 / 中 / 大 / 食物 / 稀有糖蛋）—— 越值钱越沉，收回越慢
+     · ★ 幸运果叽（28.jpg「没衣服穿」）—— 每关仅一只，又轻又快，
+       勾中额外 +200 分加成。它是**额外**奖励，不参与过关目标的计算 ——
+       看到就抢，但抢不到也不影响过关。
+     · ★ 挡路果叽（deco 素材：戴耳机 / 看书 / 开车 / 戴帽子 …）——
+       可爱但碍事：钩子撞上就被弹回（这一钩算白甩），
+       它会翻着跟头飞出去、20 秒后飘回来。
+       想抓它后面的好东西，要么换个角度绕开，要么故意撞掉它 ——
+       但那是整整一钩的时间。**"被挡"是个有解法的干扰，不是随机惩罚。**
+
+   难度递增（只改数量/速度/目标/阻碍，不改版面 —— 版面一变玩家的肌肉记忆就废了）：
+     摆动更快 · 危险果叽更多 · 挡路的更多 · 目标占比更高 · 时限更短
+
+   关卡：抓够本关目标分 → 立刻过关（剩余时间 ×6 分奖励，一半时间结转到下一关）
+         时间耗尽还没达标 → 结算
+   ============================================================ */
+(function () {
+  'use strict';
+  var U = GQ.util;
+  var ctx = GQ.ctx;
+
+  /* ---------------- 手感旋钮（调难度只动这一段） ---------------- */
+  var MAXA      = 72 * Math.PI / 180;   /* 摆动范围 ±72° */
+  /* ★ 摆动速度：0.88 rad/s 时"抡得太快"—— ±72° 一个来回只要 5.7s，
+     玩家还没看清就过去了，"等角度"变成了"赌角度"。
+     降到 0.76 后一个来回约 6.6s：仍然是"要等"，但等得住、看得清。 */
+  var SWING0    = 0.76;                 /* 第 1 关角速度 rad/s */
+  var SWING_STEP= 0.080, SWING_MAX = 1.30;
+  /* ★ 甩出速度：1000 → 700 px/s。
+     钩子飞得慢一点，玩家看得清"它往哪走、还差多少够到"；
+     这本身也是难度：飞行时间 T = 距离 ÷ 700，600px 外那件要飞 0.86s（原来 0.60s），
+     而会走的果叽正是靠这段 T 拉开提前量（Δ = vPeak × T）。 */
+  var SHOOT_V   = 700;                  /* 甩出速度 px/s */
+  var PULL_V    = 780;                  /* 空钩收回速度 px/s */
+  var PULL_WK   = 0.62;                 /* 重量对收回速度的惩罚系数 */
+  var TIME0     = 60, TIME_MIN = 44, TIME_STEP = 1.8;
+  var RATIO0    = 0.54, RATIO_STEP = 0.030, RATIO_MAX = 0.70;
+  var BONUS_SEC = 6;                    /* 过关时每剩 1 秒奖励分 */
+  var CARRY_FRAC= 0.5, CARRY_MAX = 18;  /* 剩余时间结转比例 / 上限 */
+  var RELAX_IT  = 16;                   /* 场上物件互斥松弛迭代次数（每轮末尾都夹回场地内） */
+  var TAN_INV   = 0.325;                /* 1/tan(72°)：保证战利品都落在摆动角内 */
+  var BLOCK_BACK= 20.0;                  /* 挡路果叽被撞飞后几秒飘回来（需求：20 秒） */
+  var BLOCK_FLY = 2.4;                  /* 被撞飞的动画速度（越大飞得越急） */
+  /* ★ 挡路果叽的「可命中角宽」下限（rad）。
+     摆动是**离散采样**的：主循环 45ms 一帧、0.76 rad/s ⇒ 相邻两帧差 0.034 rad；
+     窗口只有一两个采样点宽时，钩子会"擦着它过去"——玩家打不中，验收机器人
+     也打不中（实测就是这么偶发翻红的）。所以构造期不光要"有一个角度能撞到"，
+     还得量**连续多少弧度能撞到**，不够宽就换个落点/换件目标。0.088 rad ≈ 5°，
+     按 0.76 rad/s 折合 116ms，人手点得到。 */
+  var HIT_WIN   = 0.088;
+  /* ★ 一只挡路果叽最多压住几件战利品（遮挡预算）。
+     要求"打得中"会把落点往钩口一侧推（那边角宽大、不容易被糊住），
+     而角宽大 = 遮得多 —— 不设预算实测会从"每只挡 2~4 件"涨到 7 件，
+     半个坑都被压住，游戏又变回"必须先撞开"的死流程。
+     3 件是「绕一下 / 撞开它」真能二选一的量级。 */
+  var MAX_LOCK  = 3;
+  var MIN_TRAVEL= 34;                   /* 钩口到最近物件的**构造**最小行程 px */
+
+  /* ---------------- 会走的果叽（左右横移，得打提前量） ----------------
+     ★ 难点不在"它在动"，而在"钩子飞过去这段时间它也在动"：
+       飞行时间 T = 距离 ÷ SHOOT_V，T 之内目标横移 Δ = vPeak × T。
+       600px、SHOOT_V=700 ⇒ T≈0.86s，vPeak 取 80 时 Δ≈69px ≈ 1.2 倍果叽直径 ——
+       这就是「必须打提前量、但看得出规律」的量级。
+       再快就不是难度而是赌运气了，所以峰值速度有硬上限（MOVE_VMAX）。
+     ★ 用正弦而不是匀速往返：两头慢、中间快。
+       两端是「它停下来了，打！」的好时机，中间是「要打提前量」的时机 ——
+       节奏读得懂，玩家能学会，不是纯赌。 */
+  var MOVE_AMP  = 46;                   /* 振幅上限 px（实际按可用余量夹小） */
+  var MOVE_MIN  = 18;                   /* 振幅夹到这以下就别动了（抖一下没意义） */
+  var MOVE_W    = 1.70;                 /* 第 1 关角速度 rad/s（一个来回约 3.7s） */
+  var MOVE_WSTEP= 0.14, MOVE_WMAX = 2.50;
+  /* ★ 峰值速度硬上限 px/s，构造保证 amp × ω ≤ MOVE_VMAX。
+     115 对应「600px + SHOOT_V 700」下 Δ ≈ 99px；再快提前量就超过果叽本身三倍，
+     玩家只能瞎蒙。 */
+  var MOVE_VMAX = 115;
+  /* 移动果叽与别人的间隙系数，留 6% 余量 ——
+     让「整个行程都不撞别人」是构造保证而不是碰运气
+     （验收有两条盯着：mvGap ≥ 0、走到两头也在摆动角内）。 */
+  var MOVE_SP   = 1.06;
+
+  /* 物件规格：v 分值 / w 重量（越大收回越慢）/ s 相对尺寸 / extra 命中后的额外加成 */
+  var KIND = {
+    small:  { v: 25,   w: 1.00, s: 0.60 },
+    mid:    { v: 50,   w: 1.45, s: 0.78 },
+    big:    { v: 85,   w: 2.00, s: 1.00 },
+    food:   { v: 120,  w: 2.60, s: 0.92 },
+    rare:   { v: 260,  w: 3.40, s: 0.70 },
+    danger: { v: -45,  w: 0.90, s: 0.66 },   /* 投降果叽：抓上来扣分又扣时间 */
+    /* ★ 幸运果叽（28.jpg「没衣服穿」）：又轻又快，勾中额外 +200 —— 看到就得抢 */
+    bonus:  { v: 120,  w: 1.05, s: 0.74, extra: 200 },
+    /* ★ 挡路果叽（deco 素材）：撞上就被弹开，不是战利品，v 恒为 0 */
+    block:  { v: 0,    w: 1.00, s: 0.84 }
+  };
+  /* 只有这几种算「正式战利品」—— 过关目标分按它们算，bonus 是额外的 */
+  var SCORED = { small: 1, mid: 1, big: 1, food: 1, rare: 1 };
+  /* 挡路果叽的横向铺位：左 / 右 → 中间 → 两侧内收，逐关加密 */
+  var BLOCK_NX = [0.17, 0.83, 0.50, 0.33, 0.67];
+
+  var C = null, G = null;
+
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v) }
+  function angDiff(a, b) {
+    var d = a - b;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    return d;
+  }
+  function rrect(x, y, w, h, r) {
+    r = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  /* ---------------- 素材池 ---------------- */
+  function poolOf(name) { var p = GQ.slot(name); return p.length ? p : [] }
+
+  /* ---------------- 关卡配方 ----------------
+     数量随关卡涨，但都有上限 —— 不然第 8 关场上会挤到看不清。
+     目标分不是写死的：按「场上正分战利品总值 × 占比」反推，
+     所以每一关都保证「抓够目标是有可能的」，难度只体现在占比与时限上。 */
+  function mixOf(lv) {
+    return [
+      ['small',  Math.min(10, 6 + lv)],
+      ['mid',    Math.min(8, 5 + lv)],
+      ['big',    Math.min(7, 3 + Math.floor(lv * 0.8))],
+      ['food',   Math.min(5, 2 + Math.floor(lv * 0.7))],
+      ['rare',   Math.min(4, lv >= 2 ? 1 + Math.floor(lv / 3) : 1)],
+      ['bonus',  1],                                              /* 幸运果叽：每关一只 */
+      ['danger', lv >= 2 ? Math.min(5, lv - 1) : 0],
+      /* ★ 挡路果叽：从 2 只起，每两关 +1，封顶 5 ——
+         再多就不是「绕得过去」而是「堵死整口坑」了。 */
+      ['block',  blockPlan(lv)]
+    ];
+  }
+  /* 目标分 = 场上「正式战利品」总值 × 占比。
+     ★ 幸运果叽（bonus）刻意不参与计算：它是额外奖励，
+     不该变成「必须抓到才能过关」—— 不然抽不到它就等于被系统坑了。 */
+  function targetOf(mix, lv) {
+    var tot = 0;
+    mix.forEach(function (m) {
+      if (!SCORED[m[0]]) return;
+      tot += m[1] * KIND[m[0]].v;
+    });
+    var ratio = targetRatio(lv);
+    return Math.max(100, Math.round(tot * ratio / 10) * 10);
+  }
+  function targetRatio(lv) { return Math.min(RATIO_MAX, RATIO0 + (lv - 1) * RATIO_STEP) }
+  function timeOf(lv) { return Math.max(TIME_MIN, TIME0 - (lv - 1) * TIME_STEP) }
+  function swingOf(lv) { return Math.min(SWING_MAX, SWING0 + (lv - 1) * SWING_STEP) }
+  /* 挡路果叽的打算放几只（纯公式，不碰 GQ —— targetOf 在 init 前也会调 mixOf）。
+     ★ 真正上场数还要受两个上界约束（见 blockCount）：铺位只有 5 个、
+     素材槽位也可能被体积预算裁掉。布局自检必须按**实际**上场数判，
+     否则槽位一被裁，断言就会误报"挡路果叽数量不对"。 */
+  function blockPlan(lv) { return Math.min(5, 2 + Math.floor((lv - 1) / 2)) }
+  function blockCount(lv) {
+    return Math.max(0, Math.min(blockPlan(lv), BLOCK_NX.length, poolOf('block').length));
+  }
+
+  /* ---------------- 布局 ---------------- */
+  function layout() {
+    var W = GQ.W, H = GQ.H;
+    var hudEl = document.getElementById('hud');
+    var hudB = hudEl ? hudEl.getBoundingClientRect().bottom : 44;
+
+    var padX = clamp(W * 0.035, 10, 24);
+    var BAR_TOP = hudB + 5;            /* 关卡条位置 */
+    var BAR_H   = 23;                  /* 19 高 + 上下各 2 边框 */
+
+    /* ★ 果叽站在坑口的平台上 —— 它占的高度必须在「关卡条之下、平台之上」。
+       先按屏幕算身高，再把平台顶推到它脚下：
+       平台顶 = HUD 底 + 关卡条 + 间隙 + 果叽身高。
+       直接写 hudB + 4 + heroH 会让关卡条压在果叽脸上（第一版就是这个毛病）。 */
+    var heroH   = clamp(Math.min(W * 0.26, H * 0.16), 46, 108);
+    var ledgeTop = BAR_TOP + BAR_H + 4 + heroH;
+    var ledgeH   = clamp(H * 0.036, 20, 34);
+    var ledgeBot = ledgeTop + ledgeH;
+
+    var fieldH = Math.max(200, H - ledgeBot - 8);
+    /* ★ 场地不能无限拉宽：桌面浏览器是「宽而矮」的，照抄吃满宽度会把坑压成
+       一条又长又扁的横带，果叽缩成小点。给一个宽高比上限，超出去就居中留白。 */
+    var fieldW = Math.min(W - padX * 2, clamp(fieldH * 2.1, 260, 640));
+    var fieldX = (W - fieldW) / 2;
+
+    var hookH = clamp(fieldW * 0.10, 20, 38);
+    var hookRest = hookH * 1.35;
+    /* ★ 「最近物件至少离钩口 MIN_TRAVEL」是**构造保证**的，不是碰运气：
+       起始安全边距从钩子待机位置反推。写成固定值（如 fieldH*0.085）时，
+       钩口本身随钩子大小浮动，行程就会时够时不够 —— 断言会随机变红。
+       下界写 MIN_TRAVEL 而不是 26：矮屏上钳到 26 会让行程只剩 24px，
+       「一按就贴脸」，手感直接坏掉。 */
+    var minTop = hookRest + clamp(fieldH * 0.10, MIN_TRAVEL, 52);
+
+    G = {
+      heroH: heroH,
+      ledgeTop: ledgeTop, ledgeH: ledgeH, ledgeBot: ledgeBot,
+      fieldX: fieldX, fieldY: ledgeBot, fieldW: fieldW, fieldH: fieldH,
+      fieldRight: fieldX + fieldW, fieldBottom: ledgeBot + fieldH,
+      pivotX: fieldX + fieldW / 2, pivotY: ledgeBot + 2,
+      hookH: hookH,
+      hookRest: hookRest,
+      tipR: Math.max(11, hookH * 0.58),
+      itemH: clamp(Math.min(fieldW * 0.13, fieldH * 0.095), 24, 52),
+      minTop: minTop,
+      barTop: BAR_TOP, barH: BAR_H,
+      hudB: hudB
+    };
+
+    /* HUD / 进度条 / 提示语跟着场地收窄 ——
+       不然宽屏上三颗药丸会被丢到屏幕最左最右，和居中的坑脱节。 */
+    if (hudEl) { hudEl.style.left = fieldX + 'px'; hudEl.style.right = 'auto'; hudEl.style.width = fieldW + 'px' }
+    var bar = document.getElementById('lvbar');
+    if (bar) { bar.style.left = fieldX + 'px'; bar.style.width = fieldW + 'px'; bar.style.top = BAR_TOP + 'px' }
+    /* 提示语放进「坑口」那一条安全边距里（战利品最少在钩口下方 46px，
+       那一段本来就是空的）—— 放在 HUD 下面会正好糊在果叽脸上。 */
+    var hint = document.getElementById('hint');
+    if (hint) hint.style.top = (G.fieldY + 9) + 'px';
+
+    relayout();
+  }
+
+  /* 战利品的水平位置一律存成 0~1 归一化坐标 nx / ny，
+     x、y 由 nx/ny 现算 —— 视口一变整场重新铺开，
+     而不是被 clamp 到边界上叠成一列（那个「堆叠重叠」bug 的成因）。 */
+  function itemHOf(kind) { return (G ? G.itemH : 40) * KIND[kind].s }
+  function yMinAt(x, r) {
+    return G.fieldY + Math.max(G.minTop, Math.abs(x - G.pivotX) * TAN_INV) + r;
+  }
+
+  function relayout() {
+    if (!C || !G) return;
+    C.items.forEach(function (it) {
+      it.h = itemHOf(it.kind);
+      it.r = it.h * 0.42;
+      if (it.kind === 'block') return;          /* 挡路果叽的位置由 placeBlocks 现算 */
+      var xa = G.fieldX + it.r, xb = G.fieldX + G.fieldW - it.r;
+      it.x = xa + it.nx * Math.max(1, xb - xa);
+      var y0 = yMinAt(it.x, it.r);
+      var y1 = Math.max(y0, G.fieldBottom - it.r - 6);
+      it.y = y0 + it.ny * (y1 - y0);
+    });
+    /* 三段式，顺序不能换：
+       ① 先只把战利品互相推开（这时挡路果叽还没定位，不能参与 —— 否则会按幽灵坐标推人）
+       ② 再把挡路果叽摆到「必定挡住某件战利品」的位置上
+       ③ 最后把被挡路果叽压住的战利品推开（这一步挡路果叽不动）
+       收尾再兜一次底，保证「至少挡住一件」这件事真的成立。
+       只在 resize / 换关时做，不进主循环。 */
+    relaxLoot(RELAX_IT);
+    placeBlocks();
+    relaxAfterBlocks(4);
+    /* ③ 之后战利品被推开过，可能又糊到某只挡路果叽前面 →（见 ensureReachable）
+       最后重放一次，保证每只都「打得中」。 */
+    ensureReachable();
+    ensureBlocked();
+    /* 视口缩小后绳子可能比新的射程还长 —— 顺手夹回可用范围，别让钩子挂在坑外 */
+    if (C.hookLen != null) C.hookLen = clamp(C.hookLen, G.hookRest, reachAt(C.ang));
+    /* ★ 会走的果叽放**最后一步**：这时候挡路果叽的位置、以及"哪些件被挡住"
+       都已经定下来了，才能保证「移动的果叽不在挡路果叽后面」
+       （否则它会横着走出遮挡区，遮挡计数随相位飘 → 断言随机翻红）。 */
+    setupMovers();
+  }
+
+  function clampItem(it) {
+    it.x = clamp(it.x, G.fieldX + it.r, G.fieldX + G.fieldW - it.r);
+    it.y = clamp(it.y, yMinAt(it.x, it.r), G.fieldBottom - it.r - 6);
+  }
+
+  /* 互斥松弛：把挤在一起的物件推开。
+     ★ 每一轮末尾都要「夹回场地内」，不能只在最后夹一次：
+     推到边上的物件如果不立刻拉回来，最后一轮的推开量就白费了，
+     而且边界的挤压会一层层累积 —— 表现为「最小间隙」时正时负，验收随机变红。 */
+  function relaxLoot(iters) {
+    for (var k = 0; k < iters; k++) {
+      for (var i = 0; i < C.items.length; i++) {
+        var a = C.items[i];
+        if (a.kind === 'block') continue;
+        for (var j = i + 1; j < C.items.length; j++) {
+          var b = C.items[j];
+          if (b.kind === 'block') continue;
+          pushApart(a, b, 1.06, 0.5);
+        }
+      }
+      C.items.forEach(function (it) { if (it.kind !== 'block') clampItem(it) });
+    }
+  }
+  /* 挡路果叽已摆好、且它是「不动的那一个」—— 只把它压住的战利品推开 */
+  function relaxAfterBlocks(iters) {
+    for (var k = 0; k < iters; k++) {
+      for (var i = 0; i < C.items.length; i++) {
+        var a = C.items[i];
+        for (var j = i + 1; j < C.items.length; j++) {
+          var b = C.items[j];
+          var af = a.kind === 'block', bf = b.kind === 'block';
+          if (af === bf) continue;               /* 都是块 / 都不是块 → 这一步不管 */
+          if (af) pushApart(a, b, 1.06, 1);      /* 只推 b */
+          else pushApart(a, b, 1.06, 0);         /* 只推 a */
+        }
+      }
+      C.items.forEach(function (it) { if (it.kind !== 'block') clampItem(it) });
+    }
+  }
+  /* share = 0 只推 a，1 只推 b，0.5 各推一半 */
+  function pushApart(a, b, mul, share) {
+    var dx = b.x - a.x, dy = b.y - a.y;
+    var d = Math.sqrt(dx * dx + dy * dy) || 0.01;
+    var want = (a.r + b.r) * mul;
+    if (d >= want) return;
+    var gap = want - d, ux = dx / d, uy = dy / d;
+    a.x -= ux * gap * (1 - share); a.y -= uy * gap * (1 - share);
+    b.x += ux * gap * share;       b.y += uy * gap * share;
+  }
+
+  /* ---------------- 挡路果叽的摆位 ----------------
+     ★ 「挡住东西」必须是**构造保证**的，不能靠撒点碰运气。
+     实测随机摆位有一半的局一件都挡不住 —— 那样的障碍物只是装饰：
+     玩家感觉不到干扰，验收的 `blockedLoot ≥ 1` 也随机变红。
+
+     做法：给每只挡路果叽指定一件「目标战利品」，把它摆在
+     「钩口 → 目标」这条射线上（约 42%~86% 处）。挡在射线正中间，
+     目标就必然被遮住 —— 想抓它只能先撞开这只、或者换个角度绕。
+     挡路果叽**不参与**第一轮松弛（它是"钉子"），只把被它压住的战利品推开。 */
+  function blockTargets(n) {
+    var cand = [], br = 0;
+    C.items.forEach(function (it) {
+      if (it.kind === 'block') { if (!br) br = it.r; return }
+      if (it.kind === 'danger' || it.kind === 'bonus') return;
+      if (it.taken) return;
+      var ang = Math.atan2(it.x - G.pivotX, Math.max(1, it.y - G.pivotY));
+      if (Math.abs(ang) > MAXA * 0.78) return;   /* 太偏的位置摆不下（会被 yMinAt 夹走） */
+      /* 「放得下」预筛：目标离钩口太近 / 自己太大，射线上就塞不进挡路的了。
+         不可行的也留着当备胎，但排序时压在可行候选后面。 */
+      var dist = Math.hypot(it.x - G.pivotX, it.y - G.pivotY);
+      cand.push({ it: it, ang: ang,
+                  ok: dist >= G.hookRest + 60 + (it.r + br + 56) * 1.06 });
+    });
+    cand.sort(function (p, q) { return p.ang - q.ang });
+    var out = [];
+    for (var i = 0; i < n && cand.length; i++) {
+      /* 候选按角度均分成 n 段，每段取「放得下 + 分值最高」的那件 ——
+         挡路果叽的铺位自然分散开，不会三只全挤在同一侧。 */
+      var a0 = Math.floor(i * cand.length / n);
+      var a1 = Math.max(a0 + 1, Math.floor((i + 1) * cand.length / n));
+      var seg = cand.slice(a0, a1);
+      seg.sort(function (p, q) {
+        if (p.ok !== q.ok) return p.ok ? -1 : 1;
+        return q.it.k.v - p.it.k.v;
+      });
+      out.push(seg[0].it);
+    }
+    return out;
+  }
+
+  function placeBlocks() {
+    C.items.forEach(function (it) {
+      if (it.kind !== 'block') return;
+      if (placeOneBlock(it)) return;
+      if (gridPlace(it)) return;
+      /* 真到这一步说明场地太挤（矮屏横屏极端情况）—— 退回固定铺位，
+         只保证"在场地里、不压着别人"，可达性交给 ensureReachable 再试。 */
+      var xa = G.fieldX + it.r, xb = G.fieldX + G.fieldW - it.r;
+      it.x = xa + it.nx * Math.max(1, xb - xa);
+      var y0 = yMinAt(it.x, it.r), y1 = Math.max(y0, G.fieldBottom - it.r - 6);
+      it.y = y0 + it.ny * (y1 - y0);
+    });
+  }
+
+  /* ★ 终极兜底：在场地里粗扫一圈落点（9×7），挑一个
+     「打得中 + 遮得不过分 + 不压着别人」的位置。
+     沿目标射线的方案（placeOneBlock）偶发会全盘失败 —— 那条射线恰好被
+     前面的战利品糊住、5 个落点 × 6 个目标都不行。这一层是**最后一道构造保证**：
+     宁可少挡一两件，也绝不留下"打不中"的挡路果叽
+     （打不中的挡路果叽会把它压住的战利品变成死路，验收也会红）。 */
+  function gridPlace(bl) {
+    var px = bl.x, py = bl.y, best = null;
+    var ya = G.fieldY + bl.r + 4, yb = G.fieldBottom - bl.r - 8;
+    if (yb <= ya) return false;
+    for (var gy = 0; gy < 9; gy++) {
+      var y = ya + (yb - ya) * gy / 8;
+      for (var gx = 0; gx < 7; gx++) {
+        var x = G.fieldX + bl.r + 4 + (G.fieldW - bl.r * 2 - 8) * gx / 6;
+        if (y < yMinAt(x, bl.r)) continue;
+        if (Math.abs(Math.atan2(x - G.pivotX, Math.max(1, y - G.pivotY))) > MAXA * 0.95) continue;
+        var bad = false;
+        for (var i = 0; i < C.items.length; i++) {
+          var o = C.items[i];
+          if (o === bl) continue;
+          if (Math.hypot(o.x - x, o.y - y) < (o.r + bl.r) * 1.04) { bad = true; break }
+        }
+        if (bad) continue;
+        bl.x = x; bl.y = y;
+        var span = blockHitSpan(bl);
+        if (span < HIT_WIN) continue;
+        var lock = blockedBy(bl);
+        if (lock > MAX_LOCK + 2) continue;
+        /* 越小越好：先要「挡住 1~MAX_LOCK 件」，再要窗口宽 */
+        var score = (lock >= 1 && lock <= MAX_LOCK ? 0 : (lock === 0 ? 10 : 20 + lock))
+                    - span;
+        if (!best || score < best.score) best = { x: x, y: y, score: score };
+      }
+    }
+    if (best) { bl.x = best.x; bl.y = best.y; return true }
+    bl.x = px; bl.y = py;
+    return false;
+  }
+
+  /* ★ 这只挡路果叽的「可命中角宽」（rad）：连续多少弧度的范围内，
+     钩子射过去会**先撞到它**。0 = 被前面的战利品完全糊住、怎么甩都撞不到。
+
+     为什么要量"窗口"而不只是"打得中"：摆动是离散采样的（见 HIT_WIN 注释），
+     窗口太窄等于打不中 —— 玩家撞不开它，它挡住的战利品就成了死路，
+     验收的 act('knockBlock') 也会随机翻红（实测就是这么红的）。
+
+     步长 0.010 rad（≈0.57°）：这是**构造期**检查，会被调几百次。
+     判定射程用 reachAt(a)，和真实甩钩完全一致。 */
+  function blockHitSpan(bl) {
+    var step = 0.010, run = 0, best = 0;
+    for (var a = -MAXA + 0.02; a <= MAXA - 0.02; a += step) {
+      if (hitAlong(a, G.hookRest, reachAt(a)) === bl) {
+        run += step;
+        if (run > best) best = run;
+      } else run = 0;
+    }
+    return best;
+  }
+  function blockReachable(bl) { return blockHitSpan(bl) >= HIT_WIN }
+
+  /* 有几件战利品被**这一只**挡在射线上（判定口径和 blockedLootCount 一致，
+     只是把"随便哪只挡的"收窄成"这一只挡的"）。 */
+  function blockedBy(bl) {
+    var n = 0;
+    C.items.forEach(function (it) {
+      if (it.kind === 'block' || it.kind === 'danger' || it.kind === 'bonus' || it.taken) return;
+      var ang = Math.atan2(it.x - G.pivotX, Math.max(1, it.y - G.pivotY));
+      if (Math.abs(ang) > MAXA - 0.02) return;
+      var dist = Math.hypot(it.x - G.pivotX, it.y - G.pivotY);
+      if (hitAlong(ang, G.hookRest, dist) === bl) n++;
+    });
+    return n;
+  }
+
+  /* 备选目标：首选目标放不下时换一件 —— 挡在谁前面都是挡，
+     干扰效果几乎不受影响，但「放得下 + 打得中」的成功率大幅提高。
+     先按「放得下」预筛（目标太近 / 太大就没地方塞了），再按分值排序。 */
+  function altTargets(bl, n) {
+    var out = [];
+    C.items.forEach(function (it) {
+      if (it === bl || it.kind === 'block' || it.kind === 'danger' || it.kind === 'bonus') return;
+      if (it.taken || it === bl.tgt) return;
+      var ang = Math.atan2(it.x - G.pivotX, Math.max(1, it.y - G.pivotY));
+      if (Math.abs(ang) > MAXA * 0.80) return;
+      var dist = Math.hypot(it.x - G.pivotX, it.y - G.pivotY);
+      /* 这条射线上还塞得下它吗（lo 的粗估 + 别贴到目标身上） */
+      if (dist < G.hookRest + 60 + (it.r + bl.r + 56) * 1.06) return;
+      out.push(it);
+    });
+    out.sort(function (p, q) { return q.k.v - p.k.v });
+    return out.slice(0, n);
+  }
+
+  /* 沿「钩口 → 目标」这条射线试几个落点，找到第一个同时满足
+     ① 在场内 ② 不与任何物件重叠 ③ 可命中角宽够（blockReachable）
+     ④ want ≤ 压住的战利品 ≤ cap 的位置。
+     ★ 落点顺序**从远到近**：离钩口越远角宽越窄、遮得越少。
+       反过来的话会优先选到"最靠近钩口、遮得最多"的落点。 */
+  function placeOnRay(bl, t, want, cap) {
+    if (!t || t.taken) return false;
+    var px = bl.x, py = bl.y;                    /* 失败要还原，绝不留下半成品坐标 */
+    var ang = Math.atan2(t.x - G.pivotX, Math.max(1, t.y - G.pivotY));
+    if (Math.abs(ang) > MAXA * 0.80) return false;
+    var dist = Math.hypot(t.x - G.pivotX, t.y - G.pivotY);
+    /* 离钩口最近能放到哪：既满足 minTop，也满足「所有物件都在摆动角内」那条斜边约束 */
+    var lo = (G.hookRest + clamp(G.fieldH * 0.10, MIN_TRAVEL, 52) + bl.r + 4)
+             / Math.max(0.34, Math.cos(ang));
+    var hi = dist - (t.r + bl.r) * 1.06;         /* 别贴到目标身上 */
+    if (hi <= lo) return false;
+    for (var k = 4; k >= 0; k--) {
+      var tt = clamp(dist * (0.58 + k * 0.10), lo, hi);
+      var x = G.pivotX + Math.sin(ang) * tt, y = G.pivotY + Math.cos(ang) * tt;
+      if (x < G.fieldX + bl.r + 2 || x > G.fieldX + G.fieldW - bl.r - 2) continue;
+      if (y > G.fieldBottom - bl.r - 6) continue;
+      if (y < yMinAt(x, bl.r)) continue;         /* 会被夹回 → 位置太偏，换一个 */
+      var bad = false;
+      for (var i = 0; i < C.items.length; i++) {
+        var o = C.items[i];
+        if (o === bl) continue;
+        var mul = o.kind === 'block' ? 1.06 : 1.04;
+        if (Math.hypot(o.x - x, o.y - y) < (o.r + bl.r) * mul) { bad = true; break }
+      }
+      if (bad) continue;
+      bl.x = x; bl.y = y;
+      var lock = blockedBy(bl);
+      if (lock >= want && lock <= cap && blockReachable(bl)) return true;
+      bl.x = px; bl.y = py;                      /* 不合条件 → 还原，换落点 */
+    }
+    bl.x = px; bl.y = py;
+    return false;
+  }
+
+  /* 首选目标不行就换目标 —— 成功才写回 bl.tgt，失败原样留着。
+     ★ 降级阶梯（每一档都保住"打得中"，只是遮挡要求放宽松）：
+       ① 挡住 1~MAX_LOCK 件 —— 最想要的：真干扰、又不过分
+       ② 挡住 0~MAX_LOCK+2 件 —— 这条射线上实在没法让它挡住东西
+       ③ 交给 placeBlocks 的固定铺位兜底（走不到） */
+  function placeOneBlock(bl, want, cap) {
+    if (want == null) want = 1;
+    if (cap == null) cap = MAX_LOCK;
+    var tries = [];
+    if (bl.tgt) tries.push(bl.tgt);
+    tries = tries.concat(altTargets(bl, 5));
+    for (var i = 0; i < tries.length; i++) {
+      if (placeOnRay(bl, tries[i], want, cap)) { bl.tgt = tries[i]; return true }
+    }
+    if (want > 0) return placeOneBlock(bl, 0, cap + 2);
+    return false;
+  }
+
+  /* 松弛会挪战利品，可能把某只挡路果叽又糊住 → 重放。
+     ★ 要**跑三轮**：挪 A 有可能糊住 B，修 B 又可能糊住 A —— 单轮会留下漏网的。
+     一轮里从头到尾过一遍，三轮足够收敛（实测两轮就静了）。
+     placeOnRay / gridPlace 只在成功时才写坐标，失败=保持原样。 */
+  function ensureReachable() {
+    for (var pass = 0; pass < 3; pass++) {
+      var bad = 0;
+      C.items.forEach(function (it) {
+        if (it.kind !== 'block' || it.taken) return;
+        if (blockReachable(it)) return;
+        bad++;
+        if (!placeOneBlock(it)) gridPlace(it);
+      });
+      if (!bad) return;
+    }
+  }
+
+  /* 最后一道保险：万一上面全失败、一件都没挡住，就把第一只挡路果叽
+     沿「最中央那件战利品」的方向重新放一次（验收里有 blockedLoot ≥ 1 盯着）。 */
+  function ensureBlocked() {
+    if (blockedLootCount() > 0) return;
+    var blk = null, cand = null;
+    C.items.forEach(function (it) {
+      if (!blk && it.kind === 'block') blk = it;
+      if (it.kind === 'block' || it.kind === 'danger' || it.kind === 'bonus' || it.taken) return;
+      var ang = Math.abs(Math.atan2(it.x - G.pivotX, Math.max(1, it.y - G.pivotY)));
+      if (ang > MAXA * 0.76) return;
+      if (!cand || ang < cand.ang) cand = { it: it, ang: ang };
+    });
+    if (!blk || !cand) return;
+    blk.tgt = cand.it;
+    /* 这是"至少挡住一件"的兜底，遮挡预算放宽；射线方案不行就上粗扫 */
+    if (!placeOneBlock(blk, 1, MAX_LOCK + 2)) gridPlace(blk);
+  }
+
+  /* ================= 会走的果叽：构造保证的横移布置 =================
+     ① 挑候选（正式战利品、且不在挡路果叽后面）
+     ② 算「圆心能横着走多远」
+     ③ 逐个分配，后分配的把**先分配的活动区间**当障碍 ——
+        于是「移动果叽之间不会撞」也成了构造保证，不靠碰运气。
+     挂在 relayout() 最后一步：resize 和换关都会重算一遍。 */
+
+  function movePlan(lv) { return Math.min(5, 2 + Math.floor((lv - 1) / 3)) }
+  function moveWOf(lv) { return Math.min(MOVE_WMAX, MOVE_W + (lv - 1) * MOVE_WSTEP) }
+
+  /* 圆心能横着走多远 → [lo, hi]。三重约束取交集：
+     ① 场地左右边界（留 2px）
+     ② **摆动角锥**：物件得一直在钩子打得着的锥内。yMinAt 给的是「给定 x 时 y 的最小值」，
+        这里要反过来解「给定 y 时 x 的范围」：y - fieldY - r ≥ |dx| × TAN_INV
+        ⇒ |dx| ≤ M ÷ TAN_INV。再乘 0.94 留余量，别贴着锥边走。
+     ③ 同一水平带里的其他物件 + 已分配好的移动果叽的**整段活动区间**
+        （区间不相交 ⇒ 任何相位都不会撞）。 */
+  function moveBand(it, assigned) {
+    var lo = G.fieldX + it.r + 2, hi = G.fieldX + G.fieldW - it.r - 2;
+    var M = (it.y - G.fieldY - it.r) * 0.94;
+    var half = Math.max(0, M / TAN_INV);
+    lo = Math.max(lo, G.pivotX - half);
+    hi = Math.min(hi, G.pivotX + half);
+    for (var i = 0; i < C.items.length; i++) {
+      var o = C.items[i];
+      if (o === it || o.taken || o.knock > 0 || o.mv) continue;
+      if (Math.abs(o.y - it.y) >= (o.r + it.r) * MOVE_SP) continue;
+      var cl = (o.r + it.r) * MOVE_SP;
+      if (o.x < it.x) lo = Math.max(lo, o.x + cl);
+      else hi = Math.min(hi, o.x - cl);
+    }
+    (assigned || []).forEach(function (b) {
+      if (Math.abs(b.y - it.y) >= (b.r + it.r) * MOVE_SP) return;
+      var cl = (b.r + it.r) * MOVE_SP;
+      var b0 = b.mv.bx - b.mv.amp, b1 = b.mv.bx + b.mv.amp;
+      if (b1 < it.x) lo = Math.max(lo, b1 + cl);
+      else if (b0 > it.x) hi = Math.min(hi, b0 - cl);
+      else { lo = 1; hi = 0 }               /* 它的活动区间已经包住这只 → 放不下 */
+    });
+    return [lo, hi];
+  }
+
+  function setupMovers() {
+    if (!C || !G) return;
+    C.items.forEach(function (it) { it.mv = null });   /* resize 后要重算，先清空 */
+    C.movers = 0;
+    var plan = movePlan(C.level);
+    if (plan <= 0) return;
+    /* ★ 候选只从**正式战利品**里挑：
+       · 不碰幸运果叽 —— 它本来就是额外奖励，变成移动的等于白给
+       · 不碰挡路果叽（它不是战利品）
+       · 排除"已经在挡路果叽后面"的 —— 否则它会横着走出遮挡区，
+         「挡住 N 件」随相位忽多忽少（那会变成一条随机翻红的断言） */
+    var cand = [];
+    C.items.forEach(function (it) {
+      if (!SCORED[it.kind] || it.taken || it.mv) return;
+      if (blockedBy(it) > 0) return;
+      var b = moveBand(it, []);
+      var w = Math.min(it.x - b[0], b[1] - it.x);
+      if (w < MOVE_MIN) return;
+      cand.push({ it: it, w: w });
+    });
+    if (!cand.length) return;
+    /* 走得更宽的优先（幅度小到看不出来 = 没加难度），同宽的随机 ——
+       先按宽度降序，再在前 2×plan 只里洗牌：每局不一样，但都动得明显。 */
+    cand.sort(function (p, q) { return q.w - p.w });
+    var pool = cand.slice(0, Math.max(plan, Math.min(cand.length, plan * 2)));
+    U.shuffle(pool);
+    var assigned = [];
+    for (var i = 0; i < pool.length && C.movers < plan; i++) {
+      var it2 = pool[i].it;
+      var b2 = moveBand(it2, assigned);
+      var amp = Math.min(MOVE_AMP, it2.x - b2[0], b2[1] - it2.x);
+      if (amp < MOVE_MIN) continue;
+      /* ★ ω 被 MOVE_VMAX ÷ amp 再夹一次：构造保证 amp × ω ≤ MOVE_VMAX（峰值速度硬上限） */
+      var w2 = Math.min(moveWOf(C.level), MOVE_VMAX / amp);
+      it2.mv = {
+        bx: it2.x, amp: amp, w: w2,
+        ph: Math.random() * 6.283       /* 相位各自随机：不整齐划一，也更好看 */
+      };
+      assigned.push(it2);
+      C.movers++;
+    }
+  }
+
+  /* 诊断用：整段行程里「移动果叽与别人」的最小间隙 px。
+     ① 移动 ↔ 移动：两段活动区间之间的最小距离（端点取最坏 —— 数学上就是最坏情况）
+     ② 移动 ↔ 静止：沿固定那条 y，把静止件投影到活动区间上取最近点
+     验收拿它断言 ≥ 0：保证不会出现"两只果叽叠在一起"的画面。 */
+  function moveGapOf() {
+    if (!C) return 99;
+    var mv = [];
+    C.items.forEach(function (it) { if (it.mv && !it.taken) mv.push(it) });
+    if (!mv.length) return 99;
+    var best = 1e9;
+    for (var i = 0; i < mv.length; i++) {
+      for (var j = i + 1; j < mv.length; j++) {
+        var a = mv[i], b = mv[j];
+        /* ★ 必须把 y 差一并算进去。只比横向会算出负值 —— 那是**假警**，不是真重叠：
+           纵向差得够远时（moveBand 里 |Δy| ≥ (r+r)×MOVE_SP 就不约束 x 了），
+           两只果叽的横向区间可以重叠，但圆心根本挨不着。
+           实测就是这么误报 -28px 的：真重叠 0 次，假警 2 次。 */
+        var dxmin = Math.max(0, Math.abs(a.mv.bx - b.mv.bx) - a.mv.amp - b.mv.amp);
+        var g = Math.hypot(dxmin, a.y - b.y) - a.r - b.r;
+        if (g < best) best = g;
+      }
+    }
+    for (var k = 0; k < mv.length; k++) {
+      var m = mv[k], x0 = m.mv.bx - m.mv.amp, x1 = m.mv.bx + m.mv.amp;
+      for (var t = 0; t < C.items.length; t++) {
+        var o = C.items[t];
+        if (o === m || o.taken || o.mv) continue;
+        var nx = clamp(o.x, x0, x1);
+        var g2 = Math.hypot(o.x - nx, o.y - m.y) - o.r - m.r;
+        if (g2 < best) best = g2;
+      }
+    }
+    return Math.round(best);
+  }
+
+  /* 诊断用：**当前这一刻**场上物件两两之间的最小间隙 px。
+     移动果叽是活的，所以验收会隔一段时间连采多次取最小值 ——
+     那才是"整个运动过程真的没重叠"的**实测**证据（构造推导只是保证，实测才算验过）。
+     被抓住的（taken）和正在飘的（knock>0）不算：它们不在场上。 */
+  function minGapNow() {
+    if (!C) return 99;
+    var best = 1e9, live = 0;
+    for (var i = 0; i < C.items.length; i++) {
+      if (C.items[i].taken || C.items[i].knock > 0) continue;
+      live++;
+      for (var j = i + 1; j < C.items.length; j++) {
+        if (C.items[j].taken || C.items[j].knock > 0) continue;
+        var a = C.items[i], b = C.items[j];
+        var g = Math.hypot(b.x - a.x, b.y - a.y) - a.r - b.r;
+        if (g < best) best = g;
+      }
+    }
+    return live < 2 ? 99 : Math.round(best);
+  }
+
+  /* 诊断用：移动果叽走到两头时最偏的角度（度）—— 得一直在摆动角锥里 */
+  function moveAngDeg() {
+    if (!C) return 0;
+    var m = 0;
+    C.items.forEach(function (it) {
+      if (!it.mv) return;
+      var x0 = it.mv.bx - it.mv.amp, x1 = it.mv.bx + it.mv.amp;
+      var dy = Math.max(1, it.y - G.pivotY);
+      m = Math.max(m, Math.abs(Math.atan2(x0 - G.pivotX, dy)),
+                      Math.abs(Math.atan2(x1 - G.pivotX, dy)));
+    });
+    return Math.round(m * 57.2958);
+  }
+
+  /* 诊断用：移动果叽里峰值速度最大的那个 px/s（= amp × ω） */
+  function movePeak() {
+    var p = 0;
+    if (C) C.items.forEach(function (it) { if (it.mv) p = Math.max(p, it.mv.amp * it.mv.w) });
+    return Math.round(p);
+  }
+
+  /* 当前角度上绳子能伸多远：射线与场地矩形求交 */
+  function reachAt(ang) {
+    if (!G) return 300;
+    var dx = Math.sin(ang), dy = Math.cos(ang);
+    var t = (G.fieldBottom - G.pivotY) / dy;
+    if (dx > 1e-6) t = Math.min(t, (G.fieldRight - G.pivotX) / dx);
+    if (dx < -1e-6) t = Math.min(t, (G.fieldX - G.pivotX) / dx);
+    return Math.max(G.hookRest + 18, t);
+  }
+
+  /* ---------------- 搭一关 ----------------
+     战利品、幸运果叽、挡路果叽都放进同一个 C.items：
+     位置重铺 / 互斥松弛 / 铺开度这些逻辑就都能复用，不必写三套。 */
+  function buildLevel(lv) {
+    var mix = mixOf(lv), loot = [], blocks = [];
+    mix.forEach(function (m) {
+      for (var i = 0; i < m[1]; i++) (m[0] === 'block' ? blocks : loot).push(m[0]);
+    });
+    U.shuffle(loot);
+    /* 兜底上限：矮屏 / 横屏上坑又浅又窄，硬塞 30 多件会挤成一团。
+       按「坑里真正能摆下的面积」反推能放几件，超了就砍（砍的都是小的，不影响目标分）。 */
+    var usableH = Math.max(40, G.fieldH - G.minTop - G.itemH);
+    var maxN = Math.max(10, Math.floor(G.fieldW * usableH / Math.pow(G.itemH * 1.5, 2)));
+    if (loot.length > maxN) loot = loot.slice(0, maxN);
+
+    var pools = {
+      small: poolOf('small'), mid: poolOf('mid'), big: poolOf('big'),
+      food: poolOf('food'), rare: poolOf('rare'), danger: poolOf('danger'),
+      bonus: poolOf('bonus'), block: poolOf('block')
+    };
+    var fb = GQ.slot('face');
+
+    function make(kind, nx, ny) {
+      var p = pools[kind];
+      if (!p || !p.length) p = (kind === 'danger' ? GQ.slot('danger') : fb);
+      if (!p || !p.length) p = GQ.heroes();
+      var slug = p[U.ri(0, p.length - 1)];
+      return {
+        kind: kind, slug: slug, k: KIND[kind],
+        nx: clamp(nx, 0, 1), ny: clamp(ny, 0, 1),
+        ph: Math.random() * 6.283, taken: false,
+        knock: 0, fly: 0, back: 0, fx: 0, fy: 0, fdx: 0, fdy: 0,
+        tgt: null,
+        x: 0, y: 0, h: 40, r: 17
+      };
+    }
+
+    var n = loot.length;
+    C.items = loot.map(function (kind, i) {
+      /* 起始位置：横向按序号均匀铺开再抖一抖（纯随机必然局部堆成一坨），
+         纵向纯随机。真正的间距由 relayout 里的松弛保证。 */
+      return make(kind, (i + 0.5 + (Math.random() - 0.5) * 0.85) / Math.max(1, n), Math.random());
+    });
+    /* ★ 先铺一次战利品（这时还没有挡路果叽）—— 拿到它们的 x/y，
+       才能给每只挡路果叽挑一件「该被它挡住的」目标。
+       挑完再铺第二次，让 placeBlocks 把挡路果叽摆到「钩口 → 目标」的射线上。
+       留 BLOCK_NX 只是兜底铺位：极矮/极窄的坑上可能一条干净的射线都找不到。 */
+    relayout();
+    var bn = blockCount(lv), tgs = blockTargets(bn);
+    for (var bi = 0; bi < bn; bi++) {
+      var blk = make(blocks[bi % Math.max(1, blocks.length)] || 'block',
+                     BLOCK_NX[bi], 0.06 + Math.random() * 0.32);
+      if (tgs[bi]) blk.tgt = tgs[bi];
+      C.items.push(blk);
+    }
+    relayout();
+  }
+
+  /* ---------------- 一局开始 ---------------- */
+  function newGame() {
+    if (!G) layout();
+    C = {
+      level: 1, score: 0, levelScore: 0, target: 0,
+      timeLeft: TIME0, grabbed: 0, rare: 0, bonus: 0, blocks: 0, danger: 0,
+      empties: 0, shots: 0,
+      combo: 0, bestCombo: 0, levelBest: 0,
+      t: 0, over: false, shake: 0,
+      ang: 0, dir: 1, hookLen: 0,
+      phase: 'swing', cargo: null, aimAng: 0, blockHit: false,
+      banner: null, toast: null, pops: [], sky: [0, 0, 0],
+      items: []
+    };
+    C.hookLen = G.hookRest;
+    C.target = targetOf(mixOf(1), 1);
+    buildLevel(1);
+    C.score = 0;
+    GQ.score = 0;
+    var h = document.getElementById('hint'); if (h) h.classList.remove('gone');
+    syncHud();
+  }
+
+  function startLevel(lv, carry) {
+    C.level = lv;
+    C.levelScore = 0;
+    C.target = targetOf(mixOf(lv), lv);
+    C.targetRatio = targetRatio(lv);
+    C.timeLeft = timeOf(lv) + clamp(carry || 0, 0, CARRY_MAX);
+    C.phase = 'swing'; C.cargo = null; C.aimAng = C.ang; C.blockHit = false;
+    C.hookLen = G.hookRest;
+    buildLevel(lv);
+    C.banner = { title: '第 ' + lv + ' 关', sub: '目标 ' + C.target + ' 分 · 摆动更快了'
+                 + (blockCount(lv) ? ' · ' + blockCount(lv) + ' 只挡路的' : '')
+                 + (C.movers ? ' · ' + C.movers + ' 只果叽在乱走' : ''),
+                 t: 1.25, kind: 'lv' };
+    syncHud();
+  }
+
+  /* ★ HUD 值得每帧写：摆动阶段每秒要扣 60 次时间。
+     先跟上次写的值比一比，没变就不碰 DOM —— 否则 60fps 白白触发重排。 */
+  var HUD_CACHE = {};
+  function put(sel, v, key) {
+    if (HUD_CACHE[key] === v) return;
+    HUD_CACHE[key] = v;
+    U.setText(sel, v);
+  }
+  function syncHud() {
+    if (!C) return;
+    GQ.score = C.score;
+    put('#score', C.score, 'score');
+    put('#caught', C.grabbed, 'caught');
+    put('#time', Math.max(0, Math.ceil(C.timeLeft)), 'time');
+    var tp = document.getElementById('timePill');
+    if (tp) tp.classList.toggle('low', C.timeLeft <= 10);
+    var pct = C.target ? clamp(C.levelScore / C.target, 0, 1) : 0;
+    if (HUD_CACHE.pct !== pct) {
+      HUD_CACHE.pct = pct;
+      var f = document.getElementById('lvFill');
+      if (f) f.style.width = Math.round(pct * 100) + '%';
+    }
+    var txt = '第 ' + C.level + ' 关 · ' + Math.max(0, C.levelScore) + ' / ' + C.target
+            + (C.levelScore >= C.target ? ' ✓' : '');
+    if (HUD_CACHE.txt !== txt) {
+      HUD_CACHE.txt = txt;
+      var t = document.getElementById('lvTxt');
+      if (t) t.textContent = txt;
+      var bar = document.getElementById('lvbar');
+      if (bar) bar.classList.toggle('done', C.levelScore >= C.target);
+    }
+  }
+  function toast(txt) { C.toast = { txt: txt, t: 1.05 } }
+  function pop(x, y, txt, color) {
+    C.pops.push({ x: x, y: y, txt: txt, c: color || '#E8963C', life: 0, max: 1.0 });
+  }
+  function showCombo(n) {
+    var e = document.getElementById('combo');
+    if (!e) return;
+    e.textContent = '×' + n + ' 连抓';
+    e.classList.remove('on');
+    void e.offsetWidth;                       /* 强制重排，动画才会重播 */
+    e.classList.add('on');
+  }
+
+  /* ---------------- 甩钩 ---------------- */
+  function onTap() {
+    if (!C || GQ.state !== 'playing') return;
+    if (C.phase !== 'swing' || C.banner) return;
+    C.aimAng = C.ang;
+    C.phase = 'shoot';
+    C.shots++;
+    GQ.SFX.tap();
+    var h = document.getElementById('hint'); if (h) h.classList.add('gone');
+    syncHud();
+  }
+
+  function weightMul(w) { return 1 + (w - 1) * PULL_WK }
+  function pullSpeed() {
+    var w = C.cargo ? C.cargo.k.w : 1;
+    return PULL_V / weightMul(Math.max(0.6, w));
+  }
+  function tipOf(len) {
+    C.hookLen = len;
+    return {
+      x: G.pivotX + Math.sin(C.ang) * len,
+      y: G.pivotY + Math.cos(C.ang) * len
+    };
+  }
+
+  /* ---------------- 挡路果叽 ---------------- */
+  /* ★ 撞飞 = 有代价的解法：白花一整钩的时间，换一条干净的射线。
+     所以它必须"真的被撞出去"，而不是原地闪一下 —— 玩家要看得见
+     「我撞掉它了，现在这条路是通的」。 */
+  function knockBlock(it) {
+    it.knock = BLOCK_BACK;
+    it.fly = 0.001;
+    it.fx = it.x; it.fy = it.y;
+    it.fdx = Math.sin(C.ang); it.fdy = Math.cos(C.ang);
+    it.back = 0;
+  }
+  function blocked() {
+    C.blocks++; C.combo = 0;
+    GQ.SFX.bad();
+    toast('被挡路的果叽挡住了！');
+    syncHud();
+  }
+
+  /* 这一条射线上、在 dist 之内有没有挡路的 —— autoPlay 用它避开死磕 */
+  function rayClear(ang, dist) {
+    var dx = Math.sin(ang), dy = Math.cos(ang);
+    for (var i = 0; i < C.items.length; i++) {
+      var it = C.items[i];
+      if (it.kind !== 'block' || it.knock > 0) continue;
+      var vx = it.x - G.pivotX, vy = it.y - G.pivotY;
+      var proj = vx * dx + vy * dy;
+      if (proj < G.hookRest || proj > dist + it.r) continue;
+      var off = Math.sqrt(Math.max(0, vx * vx + vy * vy - proj * proj));
+      if (off <= it.r + G.tipR) return false;
+    }
+    return true;
+  }
+
+  /* 有几件正分战利品**被挡路果叽遮住**（从钩口朝它的方向射过去会先撞到挡路的）。
+     这是「干扰真的落到实处」的度量：0 = 摆着好看、其实一件都没挡住。 */
+  function blockedLootCount() {
+    if (!C || !G) return 0;
+    var n = 0;
+    C.items.forEach(function (it) {
+      if (it.kind === 'block' || it.kind === 'danger' || it.kind === 'bonus') return;
+      if (it.taken) return;
+      var ang = Math.atan2(it.x - G.pivotX, Math.max(1, it.y - G.pivotY));
+      if (Math.abs(ang) > MAXA - 0.02) return;
+      var dist = Math.hypot(it.x - G.pivotX, it.y - G.pivotY);
+      if (!rayClear(ang, dist + it.r)) n++;
+    });
+    return n;
+  }
+
+  /* ★ 这个角度甩出去，会不会先撞到某只挡路果叽？返回撞到的那只（否则 null）。
+
+     act('knockBlock') 用**当前钩角 C.ang** 调它来决定"现在能不能开火"。
+     早先版本是"先 blockShot() 扫出一个理想角度，等钩子转到它 ±aimWin 时开火"——
+     实际开火角与理想角最多差 aimWin(0.062 rad ≈ 3.5°)，窗口窄的会擦着过去，
+     表现就是连甩 5~6 钩一钩都没撞上（实测 1/6 的局这样）。
+     直接拿 C.ang 判定就没有误差：甩出去的射线就是 C.ang，判定与开火同一角度。 */
+  function blockAt(ang) {
+    var hit = hitAlong(ang, G.hookRest, reachAt(ang));
+    return (hit && hit.kind === 'block' && hit.knock <= 0) ? hit : null;
+  }
+
+  /* 瞄准窗口（弧度）—— 角速度越快给的绝对窗口越宽，玩家的"反应时间窗"才恒定 */
+  function aimWin() { return Math.max(0.062, swingOf(C.level) * 0.062) }
+  /* 派发一次真实 pointerdown（不是直接调 onTap —— 要走完整的浏览器事件链） */
+  function tapScreen() {
+    var cv = GQ.cv, r = cv.getBoundingClientRect();
+    cv.dispatchEvent(new PointerEvent('pointerdown', {
+      clientX: r.left + r.width / 2, clientY: r.top + r.height * 0.72,
+      bubbles: true, cancelable: true, pointerId: 1, isPrimary: true, button: 0
+    }));
+  }
+
+  /* ---------------- 逻辑 ---------------- */
+  function update(dt) {
+    if (!C || C.over) return;
+    C.t += dt;
+    for (var b = 0; b < 3; b++) C.sky[b] += dt * (6 + b * 4);
+    if (C.shake > 0) C.shake = Math.max(0, C.shake - dt * 1.9);
+    if (C.toast) { C.toast.t -= dt; if (C.toast.t <= 0) C.toast = null }
+    for (var pi = C.pops.length - 1; pi >= 0; pi--) {
+      var q = C.pops[pi];
+      q.life += dt; q.y -= dt * 52;
+      if (q.life > q.max) C.pops.splice(pi, 1);
+    }
+
+    if (C.banner) {
+      C.banner.t -= dt;
+      if (C.banner.t <= 0) {
+        var wasLv = C.banner.kind === 'lv2';
+        var carry = C.banner.carry || 0;
+        C.banner = null;
+        if (wasLv) startLevel(C.level + 1, carry);
+        else C.phase = 'swing';
+      }
+      return;                                  /* 过场时全场冻结 */
+    }
+
+    /* 挡路果叽：被撞飞 → 滚出去 → 不在场上挡路 → 飘回来（带一圈回场提示环） */
+    for (var bi = 0; bi < C.items.length; bi++) {
+      var bl = C.items[bi];
+      if (bl.back > 0) bl.back = Math.max(0, bl.back - dt);
+      if (!bl.knock) continue;
+      bl.knock -= dt;
+      if (bl.fly < 1) bl.fly = Math.min(1, bl.fly + dt * BLOCK_FLY);
+      if (bl.knock <= 0) { bl.knock = 0; bl.fly = 0; bl.back = 0.45 }
+    }
+
+    /* ★ 会走的果叽：横向正弦来回。位置每帧由 C.t 现算，而不是 x += v*dt ——
+       增量积分会累积浮点误差，resize 后还会和 bx 对不上（越跑越偏）。
+       摆动 / 甩出 / 收回三个阶段它都在走，所以放在 phase 分支**之前**。 */
+    for (var mi = 0; mi < C.items.length; mi++) {
+      var mvit = C.items[mi];
+      if (!mvit.mv || mvit.taken) continue;
+      mvit.x = mvit.mv.bx + Math.sin(C.t * mvit.mv.w + mvit.mv.ph) * mvit.mv.amp;
+    }
+
+    if (C.phase === 'swing') {
+      var sw = swingOf(C.level);
+      C.ang += C.dir * sw * dt;
+      if (C.ang > MAXA) { C.ang = MAXA; C.dir = -1 }
+      if (C.ang < -MAXA) { C.ang = -MAXA; C.dir = 1 }
+      C.hookLen = G.hookRest;
+      C.timeLeft -= dt;
+      if (C.timeLeft <= 0) { C.timeLeft = 0; syncHud(); return finish() }
+      syncHud();                               /* 时间在跑，表也得动 */
+      return;
+    }
+
+    if (C.phase === 'shoot') {
+      var left = SHOOT_V * dt, maxR = reachAt(C.ang);
+      var step = 7;                            /* 子步进：一帧最多走 50px，不细分会穿过小果叽 */
+      while (left > 0) {
+        var d = Math.min(step, left); left -= d;
+        var prev = C.hookLen;
+        var len = Math.min(C.hookLen + d, maxR);
+        var hit = hitAlong(C.ang, prev, len);
+        C.hookLen = len;
+        if (hit) {
+          if (hit.kind === 'block') {
+            /* ★ 撞上挡路的：钩子被弹回、这钩算白甩，但它会被撞飞 BLOCK_BACK(20) 秒 */
+            knockBlock(hit);
+            C.phase = 'pull';
+            C.blockHit = true;
+            GQ.SFX.bad();
+            C.shake = 0.22;
+            break;
+          }
+          hit.taken = true;
+          C.cargo = hit;
+          C.phase = 'pull';
+          GQ.SFX.ok();
+          C.shake = 0.14;
+          break;
+        }
+        if (C.hookLen >= maxR) { C.phase = 'pull'; break }
+      }
+      return;
+    }
+
+    if (C.phase === 'pull') {
+      C.hookLen -= pullSpeed() * dt;
+      if (C.hookLen <= G.hookRest) {
+        C.hookLen = G.hookRest;
+        var cargo = C.cargo;
+        C.cargo = null;
+        C.phase = 'swing';
+        if (cargo) collect(cargo);
+        else if (C.blockHit) { C.blockHit = false; blocked() }
+        else miss();
+      }
+      return;
+    }
+  }
+
+  /* 沿角度扫一小段，找这一小段里最先撞上的物件（取离起点最近的） */
+  function hitAlong(ang, from, to) {
+    var best = null, bd = 1e9;
+    var dx = Math.sin(ang), dy = Math.cos(ang);
+    var r = G.tipR;
+    for (var i = 0; i < C.items.length; i++) {
+      var it = C.items[i];
+      if (it.taken) continue;
+      if (it.knock > 0) continue;              /* 被撞飞的挡路果叽不在场上 */
+      /* 物件到这条射线的最近点 */
+      var vx = it.x - G.pivotX, vy = it.y - G.pivotY;
+      var proj = vx * dx + vy * dy;
+      if (proj < from - it.r || proj > to + it.r) continue;
+      var pcx = dx * proj, pcy = dy * proj;
+      var off = Math.sqrt((vx - pcx) * (vx - pcx) + (vy - pcy) * (vy - pcy));
+      if (off > it.r + r) continue;
+      var back = Math.sqrt(Math.max(0, (it.r + r) * (it.r + r) - off * off));
+      var enter = clamp(proj - back, from, to);
+      if (enter < bd) { bd = enter; best = it }
+    }
+    return best;
+  }
+
+  function miss() {
+    C.empties++; C.combo = 0;
+    GQ.SFX.bad();
+    toast(C.empties % 3 === 0 ? '空手而归…' : '差一点点');
+    syncHud();
+  }
+
+  function collect(it) {
+    var tip = { x: G.pivotX + Math.sin(C.ang) * G.hookRest, y: G.pivotY + Math.cos(C.ang) * G.hookRest };
+    if (it.kind === 'danger') {
+      /* 投降果叽：抓上来会挣扎 —— 扣分 + 吃时间，还得断连击 */
+      C.danger++; C.combo = 0;
+      C.score = Math.max(0, C.score + it.k.v);
+      C.levelScore += it.k.v;
+      C.timeLeft = Math.max(1, C.timeLeft - 2);
+      C.shake = 0.55;
+      pop(tip.x, tip.y - 12, it.k.v + ' 分', '#E4514F');
+      toast('抓错了！投降果叽 －45 分 · 时间 －2s');
+      GQ.SFX.bad();
+      syncHud();
+      return;
+    }
+    C.grabbed++;
+    if (it.kind === 'rare') C.rare++;
+    if (it.kind === 'bonus') C.bonus++;
+    C.combo++;
+    if (C.combo > C.bestCombo) C.bestCombo = C.combo;
+    /* 连抓加成：每连一只 +8%，封顶 +40% —— 鼓励「不空钩」而不是「专挑大的」。
+       ★ 幸运果叽的额外加成也算进连击倍率里：连抓时抢到它回报最高，值得为它冒险。 */
+    var mult = 1 + Math.min(0.40, (C.combo - 1) * 0.08);
+    var extra = it.k.extra || 0;
+    var pts = Math.round((it.k.v + extra) * mult);
+    C.score += pts;
+    C.levelScore += pts;
+    var col = it.kind === 'danger' ? '#E4514F'
+            : ((it.kind === 'rare' || it.kind === 'bonus') ? '#E8963C' : '#5FA463');
+    pop(tip.x, tip.y - 14, '+' + pts + (extra ? ' 幸运' : ''), col);
+    /* 连抓只走那枚大字徽章，别再来一句同义 toast ——
+       两句话在同一块屏上会像「说了一遍又说一遍」。 */
+    if (it.kind === 'bonus') toast('幸运果叽！额外 ＋' + extra);
+    else if (it.kind === 'rare') toast('糖蛋！＋' + pts);
+    else if (C.combo >= 3) showCombo(C.combo);
+    GQ.SFX.combo();
+    syncHud();
+    if (C.levelScore >= C.target) levelClear();
+  }
+
+  function levelClear() {
+    var bonus = Math.floor(C.timeLeft) * BONUS_SEC;
+    var carry = Math.min(CARRY_MAX, Math.floor(C.timeLeft * CARRY_FRAC));
+    C.score += bonus;
+    C.levelBest = Math.max(C.levelBest, C.levelScore);
+    C.phase = 'clear';
+    C.cargo = null;
+    C.hookLen = G.hookRest;
+    GQ.SFX.win();
+    C.banner = {
+      title: '第 ' + C.level + ' 关 过关！',
+      sub: '剩余 ' + Math.floor(C.timeLeft) + 's → ＋' + bonus + ' 分 · 结转 ' + carry + 's',
+      t: 1.8, kind: 'lv2', carry: carry
+    };
+    syncHud();
+  }
+
+  function finish() {
+    if (C.over) return;
+    C.over = true;
+    var ov = GQ.META.over || [];
+    var title = C.level >= 5 ? (ov[0] || '果叽挖到宝啦！')
+              : (C.level >= 3 ? (ov[1] || '果叽挖得不错') : (ov[2] || '果叽才刚下坑…'));
+    GQ.endGame({
+      score: C.score, title: title,
+      rows: [['到达关卡', C.level], ['抓到的果叽', C.grabbed], ['幸运果叽', C.bonus],
+             ['稀有糖蛋', C.rare], ['最长连抓', C.bestCombo],
+             ['空钩 / 被挡', C.empties + ' / ' + C.blocks]]
+    });
+  }
+
+  /* ---------------- 绘制 ---------------- */
+  function drawSky() {
+    var W = GQ.W, H = GQ.H;
+    var sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#FFF6EA'); sky.addColorStop(0.55, '#FDF6EE'); sky.addColorStop(1, '#FBE9DC');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+    for (var b = 0; b < 3; b++) {
+      var cy = H * (0.05 + b * 0.05), cx = ((C.sky[b] + b * W * 0.5) % (W + 170)) - 85;
+      ctx.fillStyle = 'rgba(245,195,59,' + (0.14 - b * 0.035) + ')';
+      ctx.beginPath(); ctx.arc(cx, cy, 40 - b * 8, 0, 7); ctx.fill();
+    }
+  }
+
+  /* 坑口平台：果叽站在上面，脚下就是绳子垂下去的洞 */
+  function drawLedge() {
+    var x = G.fieldX, y = G.ledgeTop, w = G.fieldW, h = G.ledgeH, r = Math.min(12, h * 0.5);
+    rrect(x, y, w, h, r);
+    ctx.fillStyle = '#FFF7EC'; ctx.fill();
+    ctx.strokeStyle = 'rgba(46,46,46,.10)'; ctx.lineWidth = 2.5; ctx.stroke();
+
+    /* 台面草地：一排半圆当草簇，顶面再压一道高光 */
+    var gh = Math.max(6, h * 0.34);
+    ctx.save();
+    rrect(x, y, w, h, r); ctx.clip();
+    ctx.fillStyle = '#9CD46A';
+    ctx.fillRect(x, y, w, gh);
+    ctx.fillStyle = '#B6E3A8';
+    for (var sx = x + 4; sx < x + w - 2; sx += 11) {
+      ctx.beginPath(); ctx.arc(sx, y + gh, 5.4, Math.PI, 0); ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.fillRect(x, y, w, 2.5);
+    ctx.restore();
+    rrect(x, y, w, h, r);
+    ctx.strokeStyle = 'rgba(46,46,46,.12)'; ctx.lineWidth = 2.5; ctx.stroke();
+
+    /* 洞：绳子从这儿垂下去 */
+    var hw = G.hookH * 1.5;
+    ctx.fillStyle = 'rgba(120,96,72,.22)';
+    ctx.beginPath();
+    ctx.ellipse(G.pivotX, G.ledgeBot + 1, hw * 0.62, G.ledgeH * 0.26, 0, 0, 7);
+    ctx.fill();
+    ctx.fillStyle = '#4A443C';
+    ctx.beginPath();
+    ctx.ellipse(G.pivotX, G.ledgeBot, hw * 0.5, G.ledgeH * 0.2, 0, 0, 7);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.16)';
+    ctx.beginPath();
+    ctx.ellipse(G.pivotX, G.ledgeBot - G.ledgeH * 0.06, hw * 0.42, G.ledgeH * 0.1, 0, 0, 7);
+    ctx.fill();
+
+    /* 绳子吊轮：让「钩子从哪转」这件事看得见 */
+    ctx.beginPath();
+    ctx.arc(G.pivotX, G.ledgeBot - 1, G.hookH * 0.30, 0, 7);
+    ctx.fillStyle = '#CFC6BA'; ctx.fill();
+    ctx.strokeStyle = 'rgba(46,46,46,.24)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(G.pivotX, G.ledgeBot - 1, G.hookH * 0.10, 0, 7);
+    ctx.fillStyle = '#9E9488'; ctx.fill();
+  }
+
+  /* 土坑：暖色地层 + 碎屑 + 几颗小彩石，别做成脏兮兮的泥 */
+  function drawField() {
+    var x = G.fieldX, y = G.fieldY, w = G.fieldW, h = G.fieldH;
+    var g = ctx.createLinearGradient(0, y, 0, y + h);
+    g.addColorStop(0, '#FBF0DC'); g.addColorStop(0.55, '#F6E6CB'); g.addColorStop(1, '#EFDBBA');
+    rrect(x, y, w, h, 18);
+    ctx.fillStyle = g; ctx.fill();
+
+    ctx.save();
+    rrect(x, y, w, h, 18); ctx.clip();
+
+    /* 地层虚线 */
+    ctx.strokeStyle = 'rgba(190,160,120,.20)'; ctx.lineWidth = 1.4;
+    ctx.setLineDash([9, 9]);
+    for (var ly = y + 62; ly < y + h - 10; ly += 88) {
+      ctx.beginPath(); ctx.moveTo(x + 10, ly); ctx.lineTo(x + w - 10, ly); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    /* 碎屑（用固定伪随机，重排时不会闪） */
+    ctx.fillStyle = 'rgba(190,160,120,.30)';
+    for (var i = 0; i < 190; i++) {
+      var rx = x + ((i * 73 + 29) % 97) / 97 * (w - 12) + 6;
+      var ry = y + ((i * 137 + 61) % 89) / 89 * (h - 12) + 6;
+      ctx.beginPath(); ctx.arc(rx, ry, 1.5 + (i % 3) * 0.55, 0, 7); ctx.fill();
+    }
+    /* 小彩石：果叽 IP 的暖黄 / 腮红 / 草绿 */
+    var STONE = ['#FFD873', '#F5A0A0', '#B6E3A8', '#A8DCEF'];
+    for (var s = 0; s < 9; s++) {
+      var sx = x + ((s * 211 + 71) % 97) / 97 * (w - 24) + 12;
+      var sy = y + ((s * 149 + 17) % 83) / 83 * (h - 24) + 12;
+      ctx.beginPath();
+      ctx.ellipse(sx, sy, 4.2, 3.0, (s % 5) * 0.5, 0, 7);
+      ctx.fillStyle = STONE[s % STONE.length];
+      ctx.globalAlpha = 0.5; ctx.fill(); ctx.globalAlpha = 1;
+    }
+    /* 洞口往下投的一片阴影，暗示「这是一口坑」 */
+    var sh = ctx.createLinearGradient(0, y, 0, y + 70);
+    sh.addColorStop(0, 'rgba(150,120,86,.20)');
+    sh.addColorStop(1, 'rgba(150,120,86,0)');
+    ctx.fillStyle = sh;
+    ctx.beginPath();
+    ctx.moveTo(G.pivotX - G.hookH * 1.9, y);
+    ctx.lineTo(G.pivotX + G.hookH * 1.9, y);
+    ctx.lineTo(G.pivotX + G.hookH * 3.2, y + 70);
+    ctx.lineTo(G.pivotX - G.hookH * 3.2, y + 70);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+
+    rrect(x, y, w, h, 18);
+    ctx.strokeStyle = 'rgba(46,46,46,.12)'; ctx.lineWidth = 3; ctx.stroke();
+  }
+
+  /* 四角星：幸运果叽身边的闪光 */
+  function star4(x, y, r, rot, color) {
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(rot);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (var i = 0; i < 8; i++) {
+      var a = i * Math.PI / 4, rr = (i % 2) ? r * 0.30 : r;
+      ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  /* ★ 幸运果叽的标记：金色光晕 + 呼吸金环 + 三颗转着的星
+     （比稀有糖蛋还醒目 —— 它每关只有一只，得让人一眼看见） */
+  function drawBonusMark(it) {
+    var pulse = 1 + Math.sin(C.t * 3.0 + it.ph) * 0.07;
+    var gg = ctx.createRadialGradient(it.x, it.y, 2, it.x, it.y, it.r * 2.5 * pulse);
+    gg.addColorStop(0, 'rgba(255,203,74,.76)');
+    gg.addColorStop(0.55, 'rgba(255,214,102,.32)');
+    gg.addColorStop(1, 'rgba(255,214,102,0)');
+    ctx.fillStyle = gg;
+    ctx.beginPath(); ctx.arc(it.x, it.y, it.r * 2.5 * pulse, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(232,150,60,.52)'; ctx.lineWidth = 2;
+    ctx.setLineDash([3, 4]);
+    ctx.beginPath(); ctx.arc(it.x, it.y, it.r * 1.45, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+    for (var s = 0; s < 3; s++) {
+      var a = C.t * 1.5 + it.ph + s * 2.0944;
+      star4(it.x + Math.cos(a) * it.r * 1.62, it.y + Math.sin(a) * it.r * 1.62,
+            Math.max(4, it.r * 0.30), a, 'rgba(255,186,60,.95)');
+    }
+  }
+
+  /* ★ 挡路果叽的标记：灰蓝圆底 + 虚线环 + 顶上「挡」字小牌。
+     「这个抓不了」必须一眼看出来 —— 长得和战利品一样玩家会一直试。 */
+  function drawBlockMark(it) {
+    ctx.fillStyle = 'rgba(150,166,188,.15)';
+    ctx.beginPath(); ctx.arc(it.x, it.y, it.r * 1.30, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(118,136,160,.60)'; ctx.lineWidth = 2;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.arc(it.x, it.y, it.r * 1.30, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  function drawBlockBadge(it) {
+    var h = Math.max(14, it.r * 0.74), w = Math.max(20, h * 1.42);
+    var y = it.y - it.r * 1.30 - h - 1;
+    rrect(it.x - w / 2, y, w, h, h * 0.40);
+    ctx.fillStyle = 'rgba(126,143,166,.94)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.font = '900 ' + Math.round(h * 0.70) + 'px "PingFang SC",sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff';
+    ctx.fillText('挡', it.x, y + h / 2 + 0.5);
+  }
+
+  /* 被撞飞的挡路果叽：沿钩子前进方向翻着跟头滚出去 */
+  function drawBlockFly(it) {
+    var e = it.fly, dist = 62 * (1 - (1 - e) * (1 - e));
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1 - e * e);
+    ctx.translate(it.fx + it.fdx * dist, it.fy + it.fdy * dist - 20 * e);
+    ctx.rotate(e * 2.6);
+    var meta = GQ.meta(it.slug);
+    if (meta) GQ.drawFrame(it.slug, GQ.frameAt(meta, GQ.clock + it.ph * 700),
+                          0, 0, it.h, { anchor: 'center' });
+    ctx.restore();
+  }
+
+  /* 挡路果叽飘回来时，先画一圈扩散的提示环 —— 不然它会"凭空出现" */
+  function drawBlockBack(it) {
+    var e = 1 - clamp(it.back / 0.45, 0, 1);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(118,136,160,' + (0.5 * (1 - e)) + ')';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(it.x, it.y, it.r * (1.1 + e * 0.9), 0, 7); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawItem(it) {
+    if (it.taken || it.knock > 0) return;
+    var meta = GQ.meta(it.slug); if (!meta) return;
+    var fi = GQ.frameAt(meta, GQ.clock + it.ph * 700);
+    if (it.kind === 'bonus') {
+      drawBonusMark(it);
+    } else if (it.kind === 'block') {
+      if (it.back > 0) drawBlockBack(it);
+      drawBlockMark(it);
+    } else if (it.kind === 'rare') {
+      /* 稀有款：金色光晕 + 呼吸，一眼看出「这个值钱」 */
+      var pulse = 1 + Math.sin(C.t * 3.0 + it.ph) * 0.07;
+      var gg = ctx.createRadialGradient(it.x, it.y, 2, it.x, it.y, it.r * 2.3 * pulse);
+      gg.addColorStop(0, 'rgba(255,214,102,.70)');
+      gg.addColorStop(1, 'rgba(255,214,102,0)');
+      ctx.fillStyle = gg;
+      ctx.beginPath(); ctx.arc(it.x, it.y, it.r * 2.3 * pulse, 0, 7); ctx.fill();
+    } else if (it.kind === 'danger') {
+      /* 危险物：淡红警示圈，避免玩家「分不清哪个能抓」 */
+      ctx.strokeStyle = 'rgba(228,81,79,.35)'; ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.arc(it.x, it.y, it.r * 1.35, 0, 7); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.fillStyle = 'rgba(126,100,76,.14)';
+    ctx.beginPath(); ctx.ellipse(it.x, it.y + it.r * 0.72, it.r * 0.86, it.r * 0.22, 0, 0, 7); ctx.fill();
+    GQ.drawFrame(it.slug, fi, it.x, it.y, it.h, { anchor: 'center' });
+    if (it.kind === 'block') {
+      ctx.save();
+      drawBlockBadge(it);
+      ctx.restore();
+    }
+  }
+
+  function drawHook() {
+    var ang = C.ang;
+    var dx = Math.sin(ang), dy = Math.cos(ang);
+    var tip = { x: G.pivotX + dx * C.hookLen, y: G.pivotY + dy * C.hookLen };
+
+    /* 瞄准辅助射线：触屏上没它基本没法瞄 */
+    if (C.phase === 'swing' && !C.banner) {
+      var mr = reachAt(ang);
+      ctx.save();
+      ctx.setLineDash([6, 8]);
+      ctx.strokeStyle = 'rgba(232,150,60,.26)'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(G.pivotX + dx * G.hookRest, G.pivotY + dy * G.hookRest);
+      ctx.lineTo(G.pivotX + dx * mr, G.pivotY + dy * mr);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    /* 绳 */
+    ctx.strokeStyle = '#9E9488'; ctx.lineWidth = Math.max(2, G.hookH * 0.075);
+    ctx.beginPath();
+    ctx.moveTo(G.pivotX, G.pivotY);
+    ctx.lineTo(tip.x, tip.y);
+    ctx.stroke();
+
+    /* 爪：本地坐标里爪尖在 y=0、铰链在 y=-hookH*1.15，整体按 -ang 旋转 */
+    var L = G.hookH * 1.15;
+    var open = C.cargo ? 0.24 : 1;
+    ctx.save();
+    ctx.translate(tip.x, tip.y);
+    ctx.rotate(-ang);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#8E8579'; ctx.lineWidth = Math.max(3.4, G.hookH * 0.17);
+    [-1, 1].forEach(function (k) {
+      ctx.beginPath();
+      ctx.moveTo(k * G.hookH * 0.12, -L);
+      ctx.quadraticCurveTo(k * G.hookH * (0.20 + open * 0.60), -L * 0.34, k * G.hookH * (0.10 + open * 0.34), 0);
+      ctx.stroke();
+    });
+    ctx.beginPath();
+    ctx.moveTo(0, -L);
+    ctx.lineTo(0, -L * 0.22);
+    ctx.stroke();
+    rrect(-G.hookH * 0.30, -L - G.hookH * 0.22, G.hookH * 0.60, G.hookH * 0.56, 5);
+    ctx.fillStyle = '#CFC6BA'; ctx.fill();
+    ctx.strokeStyle = 'rgba(46,46,46,.22)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, -L - G.hookH * 0.02, G.hookH * 0.14, 0, 7);
+    ctx.fillStyle = '#E8963C'; ctx.fill();
+    ctx.restore();
+
+    /* 勾着的果叽：沿绳方向挂在爪下 */
+    if (C.cargo) {
+      var c = C.cargo;
+      var cx = tip.x + dx * c.r * 0.62, cy = tip.y + dy * c.r * 0.62;
+      GQ.drawFrame(c.slug, GQ.frameAt(GQ.meta(c.slug), GQ.clock + c.ph * 700),
+                   cx, cy, c.h, { anchor: 'center', rot: 0 });
+    }
+  }
+
+  function drawHero() {
+    var hero = GQ.hero(); if (!hero) return;
+    GQ.drawFrame(hero, GQ.frameAt(GQ.meta(hero), GQ.clock),
+                 G.pivotX, G.ledgeTop, G.heroH, { anchor: 'bottom' });
+  }
+
+  function drawFx() {
+    ctx.save();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    C.pops.forEach(function (q) {
+      ctx.globalAlpha = 1 - q.life / q.max;
+      ctx.font = '900 ' + Math.round(Math.min(GQ.W * 0.050, 23)) + 'px "PingFang SC",sans-serif';
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 5;
+      ctx.strokeText(q.txt, q.x, q.y);
+      ctx.fillStyle = q.c; ctx.fillText(q.txt, q.x, q.y);
+    });
+    ctx.globalAlpha = 1;
+
+    if (C.toast) {
+      ctx.globalAlpha = Math.min(1, C.toast.t * 1.8);
+      var ty = G.fieldY + G.fieldH * 0.30;
+      ctx.font = '900 ' + Math.round(Math.min(GQ.W * 0.062, 27)) + 'px "PingFang SC",sans-serif';
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 7;
+      ctx.strokeText(C.toast.txt, GQ.W / 2, ty);
+      ctx.fillStyle = '#E8963C'; ctx.fillText(C.toast.txt, GQ.W / 2, ty);
+      ctx.globalAlpha = 1;
+    }
+
+    if (C.banner) {
+      var a = clamp(Math.min(C.banner.t, 1.8 - C.banner.t) * 3.2, 0, 1);
+      ctx.globalAlpha = a;
+      var cy = G.fieldY + G.fieldH * 0.40;
+      ctx.font = '900 ' + Math.round(Math.min(GQ.W * 0.088, 38)) + 'px "PingFang SC",sans-serif';
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 9;
+      ctx.strokeText(C.banner.title, GQ.W / 2, cy);
+      ctx.fillStyle = '#E8963C'; ctx.fillText(C.banner.title, GQ.W / 2, cy);
+      ctx.font = '900 ' + Math.round(Math.min(GQ.W * 0.040, 17)) + 'px "PingFang SC",sans-serif';
+      ctx.lineWidth = 7;
+      ctx.strokeText(C.banner.sub, GQ.W / 2, cy + Math.min(GQ.W * 0.088, 38) * 0.86);
+      ctx.fillStyle = '#5C544E'; ctx.fillText(C.banner.sub, GQ.W / 2, cy + Math.min(GQ.W * 0.088, 38) * 0.86);
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+
+  function draw() {
+    if (!C || !G) return;
+    ctx.setTransform(GQ.DPR, 0, 0, GQ.DPR, 0, 0);
+    ctx.clearRect(0, 0, GQ.W, GQ.H);
+
+    drawSky();
+    ctx.save();
+    if (C.shake > 0) {
+      var s = C.shake * 11;
+      ctx.translate((Math.random() * 2 - 1) * s, (Math.random() * 2 - 1) * s);
+    }
+    drawField();
+    /* 下层战利品先画、下层压在上层上面 —— 才有「埋在里面」的层次 */
+    var order = C.items.slice().sort(function (a, b) { return a.y - b.y });
+    order.forEach(function (it) { if (!it.taken) drawItem(it) });
+    drawHook();
+    /* 被撞飞的挡路果叽是在半空中翻滚的 —— 画在钩子之上，不然会被绳子盖住 */
+    C.items.forEach(function (it) {
+      if (it.knock > 0 && it.fly > 0 && it.fly < 1) drawBlockFly(it);
+    });
+    drawLedge();
+    drawHero();
+    drawFx();
+    ctx.restore();
+  }
+
+  /* ---------------- 输入 ---------------- */
+  function bind() {
+    var cv = GQ.cv;
+    cv.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      onTap();
+    }, { passive: false });
+    window.addEventListener('keydown', function (e) {
+      if (GQ.state !== 'playing') return;
+      if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        onTap();
+      }
+    });
+  }
+
+  /* ---------------- 布局自检（验收脚本照单执行） ---------------- */
+  function layoutChecks() {
+    if (!C || !G) return [];
+    var hudB = G.hudB;
+    var top = 1e9, angMax = 0, minGap = 1e9, nblk = 0, nbn = 0;
+    C.items.forEach(function (it) {
+      top = Math.min(top, it.y - it.r);
+      if (it.kind === 'block') nblk++;
+      if (it.kind === 'bonus') nbn++;
+      var a = Math.abs(Math.atan2(it.x - G.pivotX, Math.max(1, it.y - G.pivotY)));
+      angMax = Math.max(angMax, a);
+    });
+    for (var i = 0; i < C.items.length; i++) {
+      for (var j = i + 1; j < C.items.length; j++) {
+        var a = C.items[i], b = C.items[j];
+        var d = Math.hypot(b.x - a.x, b.y - a.y) - a.r - b.r;
+        minGap = Math.min(minGap, d);
+      }
+    }
+    if (C.items.length < 2) { angMax = 0; minGap = 99 }
+    var travel = Math.round(top - (G.pivotY + G.hookRest));
+    var heroTop = Math.round(G.ledgeTop - G.heroH);
+    /* 每只挡路果叽都得「打得中」，而且窗口得够宽 ——
+       打不中它挡住的战利品就是死路，玩家怎么甩都撞不开（实测曾约 1/6 的局出这种）。 */
+    var nReach = 0, nBlocks = 0, minSpan = 9;
+    C.items.forEach(function (it) {
+      if (it.kind !== 'block') return;
+      nBlocks++;
+      var sp = blockHitSpan(it);
+      if (sp >= HIT_WIN) nReach++;
+      minSpan = Math.min(minSpan, sp);
+    });
+    /* 会走的果叽：只数「真的挂了 mv 的」——
+       配比是目标值，实际可能因为场地太挤少放一两只（下面断言留了这个余量）。 */
+    var nMv = 0;
+    C.items.forEach(function (it) { if (it.mv) nMv++ });
+    var mvGap = moveGapOf(), mvAng = moveAngDeg(), mvPeak = movePeak();
+    return [
+      ['布局：HUD / 关卡条都不压住果叽（关卡条底 ' + Math.round(G.barTop + G.barH)
+       + ' ≤ 果叽顶 ' + heroTop + '）',
+       G.barTop + G.barH <= heroTop - 1 && hudB <= G.ledgeTop + 1],
+      /* 门槛写死 30（构造保证是 MIN_TRAVEL=34）：不写成"≥ G.minTravel-3"那种自证式断言，
+         否则这条检查会退化成永远通过。 */
+      ['布局：钩子有甩出/收回行程（最近物件在钩口下方 ' + travel + 'px ≥ 30）', travel >= 30],
+      ['布局：所有物件都在摆动角内（最偏 ' + Math.round(angMax * 57.2958) + '° ≤ ' + Math.round(MAXA * 57.2958) + '°）',
+       angMax <= MAXA - 0.01],
+      ['布局：场上物件互不重叠（最小间隙 ' + Math.round(minGap) + 'px）', minGap >= -3],
+      ['布局：物件铺满整个场地（铺开度 ' + spreadOf() + '）', spreadOf() >= 0.6],
+      ['布局：竖直方向走得通（钩子直下射程 ' + Math.round(reachAt(0)) + 'px ≥ 场地深 ' + Math.round(G.fieldH) + 'px）',
+       reachAt(0) >= G.fieldH - 2],
+      ['布局：挡路果叽按关卡配比上场（' + nblk + ' 只 ＝ 配方 ' + blockCount(C.level) + '）',
+       nblk === blockCount(C.level)],
+      ['布局：挡路果叽真的挡住了东西（挡住 ' + blockedLootCount() + ' 件战利品）',
+       nblk === 0 || blockedLootCount() >= 1],
+      ['布局：每只挡路果叽都打得中（最窄可命中角宽 ' + (Math.round(minSpan * 573) / 10)
+       + '° ≥ ' + (Math.round(HIT_WIN * 573) / 10) + '°，' + nReach + '/' + nBlocks + ' 只）',
+       nReach === nBlocks],
+      ['布局：幸运果叽每关有且只有一只（' + nbn + '）', nbn === 1],
+      /* ★ 会走的果叽四条。前三行都是**构造保证**，不是碰运气：
+         · 配比：允许场地太挤时少放一只（极窄屏），但不能一只都没有
+         · mvGap ≥ 0：整个行程里移动果叽都不会跟别人叠上（活动区间不相交）
+         · 走到两头仍在摆动角锥内（不靠"它一般走不到边"糊过去）
+         · 峰值速度有硬上限：超过就会出现"提前量比果叽大三倍"的瞎蒙局 */
+      ['布局：会走的果叽按关卡配比上场（' + nMv + ' 只 ＝ 配方 ' + movePlan(C.level) + '）',
+       C.items.length < 6 || (nMv >= Math.max(1, movePlan(C.level) - 1) && nMv <= movePlan(C.level))],
+      ['布局：会走的果叽整个行程都不撞别人（最小间隙 ' + mvGap + 'px ≥ 0）',
+       nMv === 0 || mvGap >= 0],
+      ['布局：会走的果叽走到两头也在摆动角内（最偏 ' + mvAng + '° ≤ '
+       + Math.round(MAXA * 57.2958) + '°）', mvAng <= MAXA * 57.2958 - 0.01],
+      ['布局：会走的果叽不会快到没法打（峰值 ' + mvPeak + 'px/s ≤ ' + MOVE_VMAX
+       + '，600px 外折合提前量 ' + Math.round(mvPeak * 600 / SHOOT_V) + 'px）', mvPeak <= MOVE_VMAX]
+    ];
+  }
+
+  function spreadOf() {
+    if (!C || C.items.length < 2) return 1;
+    var lo = 1e9, hi = -1e9;
+    C.items.forEach(function (it) { lo = Math.min(lo, it.x); hi = Math.max(hi, it.x) });
+    var pad = (C.items[0].r || 0) * 2;
+    var usable = Math.max(1, G.fieldW - pad);
+    return Math.round(clamp((hi - lo) / usable, 0, 1) * 100) / 100;
+  }
+
+  GQ.boot({
+    id: 'miner',
+    layout: layout,
+
+    init: function () {
+      layout();                     /* 每局都按当前视口重量一次几何，别信开机那一版 */
+      newGame();
+      var av = document.getElementById('hudAv');
+      if (av) av.src = (GQ.portrait(GQ.hero()) || {}).src || '';
+      return null;
+    },
+
+    update: update,
+    draw: draw,
+
+    probe: function () {
+      if (!C || !G) return { layout: [] };
+      var taken = 0, left = 0, blocks = 0, bonusLeft = 0, blocked = 0;
+      C.items.forEach(function (it) {
+        if (it.kind === 'block') {
+          blocks++; if (it.knock > 0) blocked++;
+          return;
+        }
+        if (it.kind === 'bonus' && !it.taken) bonusLeft++;
+        it.taken ? taken++ : left++;
+      });
+      var sw = swingOf(C.level);
+      return {
+        level: C.level, levelScore: C.levelScore, target: C.target,
+        timeLeft: Math.round(C.timeLeft * 10) / 10,
+        shots: C.shots, grabbed: C.grabbed, rare: C.rare, bonus: C.bonus,
+        blocks: C.blocks, danger: C.danger,
+        empties: C.empties, combo: C.combo, bestCombo: C.bestCombo,
+        items: C.items.length, left: left, taken: taken,
+        blockN: blocks, blockGone: blocked, bonusLeft: bonusLeft,
+        blockedLoot: blockedLootCount(),
+        /* 会走的果叽：只数 / 配方 / 最大振幅 / 峰值速度 / 行程最小间隙 / 最偏角
+           + 第一只的当前 x —— 验收会隔 600ms 再读一次 mvX，确认它**真的在动**
+           （光有 mv 字段不算，得看位置随时间变化） */
+        movers: C.movers || 0, movePlan: movePlan(C.level),
+        mvAmp: (function () {
+          var a = 0;
+          C.items.forEach(function (it) { if (it.mv) a = Math.max(a, Math.round(it.mv.amp)) });
+          return a;
+        })(),
+        mvPeak: movePeak(), mvGap: moveGapOf(), mvAngDeg: moveAngDeg(),
+        /* 当前这一刻的全场最小间隙 —— 移动果叽是活的，
+           验收会隔一段时间连采多次取最小值（构造推导只管"应该"，实测才算"验过"） */
+        minGapNow: minGapNow(),
+        mvX: (function () {
+          /* 只取**还在场上**的那只：被抓走的已经不动了（update 里跳过 taken），
+             拿它当样本会让"真的在走"那条断言假红。 */
+          for (var i = 0; i < C.items.length; i++) {
+            if (C.items[i].mv && !C.items[i].taken) return Math.round(C.items[i].x);
+          }
+          return null;
+        })(),
+        /* 每只挡路果叽的可命中角宽（度）—— 排查"打得中"那条断言用的 */
+        blockSpans: (function () {
+          var o = [];
+          C.items.forEach(function (it) {
+            if (it.kind === 'block') o.push(Math.round(blockHitSpan(it) * 573) / 10);
+          });
+          return o;
+        })(),
+        phase: C.phase, angDeg: Math.round(C.ang * 57.2958),
+        hookLen: Math.round(C.hookLen), cargo: C.cargo ? C.cargo.kind : null,
+        swing: Math.round(sw * 100) / 100,
+        /* 布局自检的两个通用数：铺开度（窄屏→宽屏不能塌成一列）+ 详细断言表 */
+        spread: spreadOf(),
+        layout: layoutChecks(),
+        geo: {
+          W: Math.round(GQ.W), H: Math.round(GQ.H),
+          ledgeTop: Math.round(G.ledgeTop), fieldY: Math.round(G.fieldY),
+          fieldBottom: Math.round(G.fieldBottom),
+          fieldX: Math.round(G.fieldX), fieldW: Math.round(G.fieldW),
+          fieldH: Math.round(G.fieldH), heroH: Math.round(G.heroH),
+          itemH: Math.round(G.itemH), hookH: Math.round(G.hookH),
+          pivotY: Math.round(G.pivotY)
+        }
+      };
+    },
+
+    forceFinish: finish,
+
+    /* 验收用：等摆动角扫过「命中概率最高的一件战利品」，再派发真实 pointerdown。
+       选目标用的是 角宽 × 价值 —— 角宽 = (战利品半径 + 钩口半径) / 距离，
+       也就是「这一钩有多容易中」；再按价值加权，优先吃大的。
+
+       ★ 挡路果叽要绕开：先沿射线查一遍这一钩路上有没有挡路的，
+       有的话把它降权（不是排除 —— 全场都被挡时还得硬着头皮上，
+       撞掉它下一钩路就通了）。不这么做，autoPlay 会一直朝同一件东西甩钩、
+       一直被弹回来，验收就会报「抓了 0 只」。 */
+    autoPlay: function (ms) {
+      return new Promise(function (resolve) {
+        var t0 = Date.now();
+        function done() {
+          return { score: C.score, level: C.level, grabbed: C.grabbed,
+                   rare: C.rare, bonus: C.bonus, blocks: C.blocks,
+                   danger: C.danger, empties: C.empties, shots: C.shots };
+        }
+        var target = null;
+        /* 挑这一钩打谁：角宽 × 价值 − 角度差惩罚 + 「这条路上有没有挡路的」。
+           ★ 挡路果叽的惩罚要**重到几乎总是避开**（-0.55 ≫ 单件战利品的最高得分
+           aw×(1+460/500) ≈ 0.30）：不这么做，它会一直朝被挡住的那件甩钩、
+           一直被弹回来，验收就报"抓了 0 只"。全场都被挡时它仍会硬上 —— 那是对的。 */
+        function pick() {
+          var best = null, bs = -1e9;
+          for (var i = 0; i < C.items.length; i++) {
+            var it = C.items[i];
+            if (it.taken || it.knock > 0) continue;
+            if (it.kind === 'danger' || it.kind === 'block') continue;
+            var ang = Math.atan2(it.x - G.pivotX, Math.max(1, it.y - G.pivotY));
+            if (Math.abs(ang) > MAXA - 0.03) continue;
+            var dist = Math.hypot(it.x - G.pivotX, it.y - G.pivotY);
+            var aw = (it.r + G.tipR) / Math.max(40, dist);
+            var da = Math.abs(angDiff(ang, C.ang));
+            var sc = aw * (1 + (it.k.v + (it.k.extra || 0)) / 500) - da * 0.30
+                   + (rayClear(ang, dist + it.r) ? 0.15 : -0.55)
+                   /* ★ 会走的果叽降权：先吃不动的更划算 ——
+                      "等角度到位再甩"这套对移动目标会一直擦空（得打提前量）。
+                      全场只剩会走的时它仍会去打，不会卡死。 */
+                   - (it.mv ? 0.5 : 0);
+            if (sc > bs) { bs = sc; best = { it: it, ang: ang } }
+          }
+          return best;
+        }
+        function tick() {
+          if (Date.now() - t0 > ms || GQ.state !== 'playing' || !C) return resolve(done());
+          if (C.banner || C.phase !== 'swing') { setTimeout(tick, 45); return }
+          if (!target || target.it.taken) target = pick();
+          if (target) {
+            var da = angDiff(target.ang, C.ang);
+            if (Math.abs(da) <= aimWin()) {
+              tapScreen();
+              target = null;
+            }
+          }
+          setTimeout(tick, 45);
+        }
+        tick();
+      });
+    },
+
+    /* ★ 机制级测试用（验收脚本通过 GQ.act('knockBlock') 调）：
+       专门去撞一次挡路果叽。autoPlay 会主动绕开它，所以"撞上被弹回"
+       这条路在常规 autoPlay 里几乎走不到 —— 而它恰恰是这次要验的东西。
+       返回 {hits: 撞到的只数, shots: 白甩了几钩}。
+       等待上限 9s：一个摆动来回 6.6s，够扫过任何可行角度两轮。 */
+    act: function (name) {
+      if (name !== 'knockBlock') return null;
+      return new Promise(function (resolve) {
+        var t0 = Date.now(), before = C ? C.blocks : 0, shots = 0;
+        function step() {
+          if (!C || GQ.state !== 'playing') return resolve({ hits: 0, shots: shots, reason: 'not playing' });
+          if (C.blocks > before) return resolve({ hits: C.blocks - before, shots: shots });
+          if (Date.now() - t0 > 9000) {
+            return resolve({ hits: 0, shots: shots, reason: '场上没有能撞到挡路果叽的角度' });
+          }
+          if (C.banner || C.phase !== 'swing') { setTimeout(step, 24); return }
+          /* ★ 用**当前钩角**判定：甩出去的射线就是 C.ang，判定与开火零误差。
+             轮询 24ms 比主循环帧还密，不会漏掉窗口（见 HIT_WIN）。 */
+          if (blockAt(C.ang)) { tapScreen(); shots++ }
+          setTimeout(step, 24);
+        }
+        step();
+      });
+    }
+  });
+
+  bind();
+
+  /* 加载页也挂上果叽 IP 徽标（运行时只认 #pickIp / #startIp，这里自己补一个）——
+     素材是异步解码的，所以轮询到立绘就绪再填，别在还没解出图时去拿 src。 */
+  (function fillLoadIp() {
+    var e = document.getElementById('loadIp');
+    var h = GQ.hero();
+    var po = h ? GQ.portrait(h) : null;
+    if (!e || !po || !po.src) { setTimeout(fillLoadIp, 120); return }
+    GQ.ipBadge(e, h);
+  })();
+})();
+</script>
+</body>
+</html>

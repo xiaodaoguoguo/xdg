@@ -1,0 +1,1762 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#FDF6EE">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>果叽夹娃娃机</title>
+<link rel="icon" href="assets/jw/s000.png">
+<link rel="apple-touch-icon" href="assets/jw/s000.png">
+<style>
+/* ============================================================
+   果叽手机小游戏 · 共享皮肤（由 build_game.py 注入到每个模板的 <style> 里）
+   色值全部取自果叽 IP 实测：奶油底 #FDF6EE / 非纯黑描边 #2E2E2E / 腮红 #F5A0A0
+   ★ 玩法模板不要改这个文件；玩法自己的布局写在自己的 <style> 里。
+   ============================================================ */
+:root{
+  --cream:#FDF6EE;        /* 页面奶油底 */
+  --card:#FFFFFF;
+  --ink:#2E2E2E;          /* 描边深灰，非纯黑 */
+  --ink-soft:#8A8078;
+  --pink:#F5A0A0;         /* 腮红 */
+  --rose:#F08080;         /* 爱心桃粉 */
+  --yellow:#F5C33B;       /* 糖蛋暖黄 */
+  --orange:#E8963C;
+  --red:#E4514F;          /* 危险 */
+  --green:#07C160;        /* 微信绿 —— 品牌元素用 */
+  --grass:#9CD46A;        /* 场景绿 */
+  --shadow:0 4px 0 rgba(46,46,46,.10), 0 10px 22px rgba(46,46,46,.10);
+  --radius:16px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--cream);
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif;
+  color:var(--ink);
+  -webkit-user-select:none;user-select:none;
+  overscroll-behavior:none;
+  touch-action:none;
+}
+#app{
+  position:fixed;inset:0;overflow:hidden;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+/* ★ 隐藏必须同时上 visibility：只靠 opacity:0 压不住带 transform 动画的合成层
+   （开始页那只上下点头的果叽会透到结算页上面去）。visibility 参与 transition 时
+   是「离散」过渡：淡出走完才真正隐藏，淡入立刻可见，观感不受影响。 */
+.hide{opacity:0 !important;pointer-events:none !important;visibility:hidden !important}
+
+/* ---------------- 画布 ---------------- */
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+
+/* ---------------- HUD ---------------- */
+#hud{
+  position:absolute;top:calc(8px + env(safe-area-inset-top));left:10px;right:10px;
+  display:flex;gap:8px;align-items:flex-start;pointer-events:none;z-index:6;
+}
+#hud,#stage,[data-hide-on-screen]{transition:opacity .22s ease,visibility .22s ease}
+.pill{
+  background:rgba(255,255,255,.92);border:2px solid rgba(46,46,46,.08);
+  border-radius:14px;padding:5px 11px;box-shadow:0 2px 0 rgba(46,46,46,.06);
+  font-size:13px;font-weight:700;line-height:1.35;white-space:nowrap;
+}
+.pill b{font-size:17px;font-variant-numeric:tabular-nums}
+.pill.right{margin-left:auto}
+#combo{
+  position:absolute;left:50%;top:38%;transform:translate(-50%,-50%) scale(.6);
+  font-size:34px;font-weight:900;color:var(--orange);opacity:0;pointer-events:none;z-index:7;
+  text-shadow:0 3px 0 #fff,0 0 12px #fff;
+}
+#combo.on{animation:comboPop .62s cubic-bezier(.2,1.5,.4,1)}
+@keyframes comboPop{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}
+  30%{opacity:1;transform:translate(-50%,-50%) scale(1.18)}
+  70%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-56%) scale(1)}
+}
+
+/* ---------------- 品牌标识（果叽 IP 的水印位） ---------------- */
+.brand{
+  display:inline-flex;align-items:center;gap:7px;
+  background:rgba(255,255,255,.94);
+  border:2px solid rgba(7,193,96,.22);border-radius:999px;
+  padding:5px 6px 5px 12px;box-shadow:0 2px 0 rgba(7,193,96,.12);
+}
+.brand .mag{
+  font-size:15px;font-weight:900;color:var(--green);line-height:1;
+  display:inline-flex;width:16px;height:16px;align-items:center;justify-content:center;
+}
+.brand .nm{font-size:13px;font-weight:800;letter-spacing:.4px;color:#3A3A3A}
+.brand .go{
+  font-size:12px;font-weight:800;color:#fff;background:var(--green);
+  border-radius:999px;padding:4px 11px;line-height:1;
+}
+.brand-tip{font-size:12px;color:var(--ink-soft);margin-top:9px;line-height:1.6}
+.brand-tip b{color:var(--green);font-weight:800}
+
+/* 果叽 IP 徽标：圆头像 + 名字 */
+.ipbadge{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,.94);border:2px solid rgba(46,46,46,.07);
+  border-radius:999px;padding:4px 13px 4px 5px;box-shadow:0 2px 0 rgba(46,46,46,.06);
+}
+.ipbadge img{
+  width:30px;height:30px;border-radius:50%;object-fit:contain;
+  background:var(--cream);border:2px solid rgba(245,195,59,.55);
+}
+.ipbadge .t{font-size:13px;font-weight:900;letter-spacing:.5px}
+.ipbadge .s{font-size:10px;color:var(--ink-soft);letter-spacing:.3px}
+
+/* ---------------- 全屏界面层 ---------------- */
+.screen{
+  position:absolute;inset:0;z-index:20;
+  display:flex;flex-direction:column;
+  /* 内容高于屏幕时，居中交给 .wrap 的 margin:auto，否则顶部会被推出屏幕且滚不回来 */
+  justify-content:flex-start;align-items:center;
+  overflow-y:auto;overflow-x:hidden;
+  padding:calc(18px + env(safe-area-inset-top)) 18px calc(18px + env(safe-area-inset-bottom));
+  background:var(--cream);
+  transition:opacity .28s ease,visibility .28s ease;
+}
+.wrap{
+  margin:auto;width:100%;max-width:420px;
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+}
+.head{display:flex;flex-direction:column;align-items:center;gap:9px;width:100%}
+
+/* ---- ① 初始化界面 ---- */
+#screen-load .logo{
+  width:132px;height:132px;object-fit:contain;
+  filter:drop-shadow(0 8px 16px rgba(46,46,46,.14));
+  animation:bob 1.5s ease-in-out infinite;
+}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-12px) rotate(2deg)}}
+.loadbar{
+  width:190px;height:12px;border-radius:999px;background:#EFE6DA;
+  border:2px solid rgba(46,46,46,.07);overflow:hidden;
+}
+.loadbar i{display:block;height:100%;width:8%;border-radius:999px;
+  background:linear-gradient(90deg,var(--yellow),var(--orange));
+  transition:width .22s ease}
+.loadtxt{font-size:12px;color:var(--ink-soft);letter-spacing:.4px}
+h1.title{
+  font-size:27px;font-weight:900;letter-spacing:1px;text-align:center;
+  background:linear-gradient(180deg,#3A3A3A,#6B625B);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+}
+.sub{font-size:12.5px;color:var(--ink-soft);letter-spacing:.3px;text-align:center;line-height:1.5}
+
+/* ---- ② 选角色界面 ---- */
+.pickgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%}
+.charcard{
+  position:relative;background:var(--card);border-radius:var(--radius);
+  border:2.5px solid rgba(46,46,46,.08);padding:7px 7px 5px;
+  display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;
+  box-shadow:0 3px 0 rgba(46,46,46,.07);transition:transform .14s,border-color .14s;
+}
+.charcard:active{transform:scale(.95)}
+.charcard img{width:100%;aspect-ratio:1;object-fit:contain}
+.charcard .nm{
+  font-size:10.5px;font-weight:700;color:var(--ink-soft);
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.charcard.sel{border-color:var(--yellow);box-shadow:0 0 0 3px rgba(245,195,59,.28),0 3px 0 rgba(46,46,46,.07)}
+.charcard.sel::after{
+  content:"✓";position:absolute;top:-9px;right:-9px;width:24px;height:24px;
+  background:var(--yellow);color:#fff;border-radius:50%;font-size:14px;font-weight:900;
+  display:flex;align-items:center;justify-content:center;border:2.5px solid #fff;
+}
+
+/* ---- 按钮 ---- */
+.btn{
+  border:none;border-radius:var(--radius);font-family:inherit;font-weight:900;
+  font-size:17px;letter-spacing:1px;color:#fff;cursor:pointer;
+  padding:14px 30px;min-width:200px;
+  background:linear-gradient(180deg,#FFC94A,#F2A93B);
+  box-shadow:0 4px 0 #D98F26,0 10px 20px rgba(232,150,60,.28);
+  transition:transform .1s,box-shadow .1s;
+}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #D98F26,0 4px 10px rgba(232,150,60,.24)}
+.btn.ghost{
+  background:#fff;color:var(--ink);box-shadow:0 3px 0 rgba(46,46,46,.10);
+  border:2.5px solid rgba(46,46,46,.08);font-size:15px;padding:12px 24px;min-width:150px;
+}
+
+/* ---- ③ 开始界面 ---- */
+#screen-start .hero{
+  width:min(52vw,196px);object-fit:contain;
+  filter:drop-shadow(0 10px 18px rgba(46,46,46,.14));
+  animation:bob 2.2s ease-in-out infinite;
+}
+.rules{display:flex;gap:9px;flex-wrap:wrap;justify-content:center}
+.rule{
+  background:#fff;border:2px solid rgba(46,46,46,.07);border-radius:13px;
+  padding:7px 12px;font-size:12px;font-weight:700;color:#5C544E;
+  display:flex;align-items:center;gap:5px;box-shadow:0 2px 0 rgba(46,46,46,.05);
+}
+.rule em{font-style:normal;font-size:15px}
+
+/* ---- 结算界面 ---- */
+.bigscore{
+  font-size:58px;font-weight:900;line-height:1;color:var(--orange);
+  font-variant-numeric:tabular-nums;text-shadow:0 3px 0 #fff,0 8px 18px rgba(232,150,60,.22);
+}
+.bigscore small{display:block;font-size:12px;font-weight:700;color:var(--ink-soft);
+  letter-spacing:1px;margin-top:6px;text-shadow:none}
+.stat{
+  background:#fff;border-radius:var(--radius);border:2.5px solid rgba(46,46,46,.07);
+  padding:14px 18px;width:100%;display:flex;flex-direction:column;gap:6px;
+  box-shadow:var(--shadow);
+}
+.stat .row{display:flex;justify-content:space-between;font-size:14px;font-weight:700}
+.stat .row span:last-child{font-variant-numeric:tabular-nums;color:var(--orange);font-size:17px;font-weight:900}
+.newbest{font-size:12px;color:var(--green);font-weight:800;text-align:center}
+
+/* ---- 矮屏 / 横屏紧凑 ---- */
+@media (max-height:660px){
+  h1.title{font-size:22px}
+  .btn{padding:11px 24px;font-size:15px;min-width:170px}
+  #screen-start .hero{width:min(38vw,140px)}
+  .pickgrid{gap:7px}
+  .wrap{gap:10px}
+}
+@media (orientation:landscape) and (max-height:520px){
+  .wrap{max-width:min(560px,80vw)}
+  #screen-start .hero{width:min(24vh,120px)}
+}
+
+#hud .av{width:24px;height:24px;border-radius:50%;object-fit:contain;background:var(--cream);
+  border:2px solid rgba(245,195,59,.6);margin-right:2px;vertical-align:-7px}
+.pill.coins b{color:var(--orange)}
+.pill.coins.low b{color:var(--red)}
+#btnGrab{
+  position:absolute;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));
+  transform:translateX(-50%);z-index:8;cursor:pointer;touch-action:none;
+  width:94px;height:94px;border-radius:50%;border:none;padding:0;
+  font-family:inherit;font-size:21px;font-weight:900;letter-spacing:3px;color:#fff;
+  background:linear-gradient(180deg,#FFC94A,#F2A93B);
+  box-shadow:0 6px 0 #D98F26,0 12px 24px rgba(232,150,60,.32);
+  transition:transform .1s,box-shadow .1s,filter .18s,opacity .2s,visibility .2s;
+}
+#btnGrab:active{transform:translateX(-50%) translateY(4px);box-shadow:0 2px 0 #D98F26,0 6px 14px rgba(232,150,60,.3)}
+#btnGrab.busy{filter:grayscale(.4) brightness(.95)}
+#hint{
+  position:absolute;left:0;right:0;bottom:calc(122px + env(safe-area-inset-bottom));
+  text-align:center;font-size:12.5px;font-weight:700;color:#96897E;z-index:8;
+  transition:opacity .3s,visibility .3s;
+}
+#hint.gone{opacity:0;pointer-events:none}
+@media (max-height:660px){
+  #btnGrab{width:76px;height:76px;font-size:17px;bottom:calc(12px + env(safe-area-inset-bottom))}
+  #hint{bottom:calc(96px + env(safe-area-inset-bottom));font-size:11.5px}
+}
+@media (orientation:landscape) and (max-height:520px){
+  #btnGrab{left:auto;right:18px;bottom:calc(10px + env(safe-area-inset-bottom));
+    transform:none;width:62px;height:62px;font-size:14px;letter-spacing:1px}
+  #btnGrab:active{transform:translateY(4px)}
+  #hint{display:none}
+}
+</style>
+<!-- 果叽访问统计 · Umami（匿名、无 cookie、不记录个人信息） -->
+<script defer src="https://cloud.umami.is/script.js" data-website-id="23a6c515-23e1-4f47-9f5b-56c832a5190e" data-domains="xiaodaoguoguo.github.io"></script>
+<script>
+(function () {
+  var t0 = Date.now(), sent = false;
+  var slug = (location.pathname.split('/').pop() || 'index').replace(/\.html$/, '') || 'index';
+
+  window.guojiTrack = function (name, data) {
+    try { if (window.umami && window.umami.track) window.umami.track(name, data || {}); } catch (e) {}
+  };
+
+  function leave() {
+    if (sent) return;
+    sent = true;
+    window.guojiTrack('stay', { page: slug, seconds: Math.round((Date.now() - t0) / 1000) });
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') leave();
+  });
+  window.addEventListener('pagehide', leave);
+})();
+</script>
+</head>
+<body>
+<div id="app">
+  <canvas id="cv"></canvas>
+
+  <div id="hud">
+    <div class="pill"><img class="av" id="hudAv" alt="">得分 <b id="score">0</b></div>
+    <div class="pill coins" id="coinPill">币 <b id="coins">14</b></div>
+    <div class="pill right">抓到 <b id="caught">0</b></div>
+  </div>
+  <div id="combo"></div>
+
+  <div id="hint" data-hide-on-screen>按住左右拖动 · 对准果叽再按「抓」</div>
+  <button id="btnGrab" data-hide-on-screen>抓</button>
+
+  <div class="screen" id="screen-load">
+    <div class="wrap">
+      <img class="logo" id="loadLogo" alt="果叽">
+      <h1 class="title">果叽夹娃娃机</h1>
+      <div class="brand"><span class="mag"></span><span class="nm">麦次元</span><span class="go">搜索</span></div>
+      <div class="loadbar"><i id="loadBar"></i></div>
+      <div class="loadtxt" id="loadTxt">正在唤醒果叽…</div>
+    </div>
+  </div>
+
+  <div class="screen hide" id="screen-start">
+    <div class="wrap">
+      <div class="ipbadge" id="startIp"></div>
+      <img class="hero" id="heroImg" alt="果叽">
+      <h1 class="title">果叽夹娃娃机</h1>
+      <div class="rules" id="rules"></div>
+      <button class="btn" id="btnStart">开始抓</button>
+      <div style="text-align:center">
+        <div class="brand"><span class="mag"></span><span class="nm">麦次元</span><span class="go">搜索</span></div>
+        <div class="brand-tip">微信搜索公众号 <b>麦次元</b>，解锁更多可爱的果叽糖蛋</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen hide" id="screen-over">
+    <div class="wrap">
+      <img id="overImg" style="width:min(30vw,116px);object-fit:contain" alt="果叽">
+      <h1 class="title" id="overTitle">果叽玩累啦</h1>
+      <div class="bigscore"><span id="overScore">0</span><small>本局得分</small></div>
+      <div class="stat" id="overStat"></div>
+      <div class="newbest hide" id="newBest">🎉 破纪录啦！</div>
+      <button class="btn" id="btnAgain">再来一局</button>
+      <div class="brand"><span class="mag"></span><span class="nm">麦次元</span><span class="go">搜索</span></div>
+    </div>
+  </div>
+</div>
+
+<script>var MANIFEST = {"抓娃娃":{"slug":"抓娃娃","cn":"抓娃娃","roles":["hero"],"src":"抓娃娃.gif","frames":1,"frameMs":[1000],"loopMs":1000,"cols":1,"cell":160,"gap":0,"ground":152,"box":[0.0208,0.125,0.9667,0.9333],"img":"s002.webp","b64p":"s002.webp","pxKB":6.7},"guoji-4":{"slug":"guoji-4","cn":"要这个","roles":["doll"],"src":"13433923992199049.gif","frames":4,"frameMs":[80,80,80,80],"loopMs":320,"cols":6,"cell":160,"gap":4,"ground":152,"box":[0.0042,0.0167,0.975,0.9792],"img":"s004.webp","b64p":"s005.webp","pxKB":32.5},"guoji-2":{"slug":"guoji-2","cn":"一鸭一鸭哟","roles":["doll"],"src":"13433923776858960.gif","frames":6,"frameMs":[100,100,100,100,100,100],"loopMs":600,"cols":6,"cell":160,"gap":4,"ground":152,"box":[0.0458,0.0042,0.975,0.9625],"img":"s006.webp","b64p":"s007.webp","pxKB":42.6},"guoji-5":{"slug":"guoji-5","cn":"记得回我","roles":["doll"],"src":"13433924016634892.gif","frames":6,"frameMs":[80,80,80,80,80,80],"loopMs":480,"cols":6,"cell":160,"gap":4,"ground":152,"box":[0.0042,0.0208,0.9833,0.9917],"img":"s008.webp","b64p":"s009.webp","pxKB":63.5},"guoji-6":{"slug":"guoji-6","cn":"随缘吧","roles":["doll"],"src":"13433927423581705.gif","frames":6,"frameMs":[80,80,80,80,80,80],"loopMs":480,"cols":6,"cell":160,"gap":4,"ground":152,"box":[0.0125,0.0042,0.9875,0.9917],"img":"s010.webp","b64p":"s011.webp","pxKB":50.6},"guoji-7":{"slug":"guoji-7","cn":"戴着耳机","roles":["doll"],"src":"13433927450423794.gif","frames":5,"frameMs":[100,100,100,100,100],"loopMs":500,"cols":6,"cell":160,"gap":4,"ground":152,"box":[0.0667,0.1458,0.9333,0.9125],"img":"s012.webp","b64p":"s013.webp","pxKB":31.7},"guoji-8":{"slug":"guoji-8","cn":"学会了吗","roles":["doll"],"src":"13433927473325647.gif","frames":6,"frameMs":[100,100,100,100,100,100],"loopMs":600,"cols":6,"cell":160,"gap":4,"ground":152,"box":[0.0542,0.025,0.9458,0.9542],"img":"s014.webp","b64p":"s015.webp","pxKB":46.2},"guoji-11":{"slug":"guoji-11","cn":"草丛探头","roles":["doll"],"src":"13434077379404294.gif","frames":5,"frameMs":[100,100,100,100,100],"loopMs":500,"cols":6,"cell":160,"gap":4,"ground":152,"box":[0.0167,0.0083,0.9792,0.9917],"img":"s016.webp","b64p":"s017.webp","pxKB":31.4},"guoji-13":{"slug":"guoji-13","cn":"开车兜风","roles":["doll"],"src":"21.gif","frames":4,"frameMs":[60,60,60,60],"loopMs":240,"cols":6,"cell":160,"gap":4,"ground":152,"box":[0.0042,0.0917,0.9917,0.9875],"img":"s018.webp","b64p":"data:image/webp;base64,UklGRn4OAABXRUJQVlA4WAoAAAAQAAAAnwAAnwAAQUxQSB0EAAABoAbtnyFJqu7pHqztW+/Ztm3btu27T7Zt27Zt22ZHRkbGP/7xftm9yqqu/J8vImICsv8B37mSCAQ9drhRul5GABSO7THJ8fzKVAXYwCCDvm8xTQ2e9e0xETctwLOWOV5Cfxct1rPG23lwrG6MV3Ph6GOK7s8kl8gZptgcRy7uq1lirQg4ncUSy8dQXjBE40aVfMAOm2y64abTm6CJEFOZ6iefvffJftON752ujsak8x1xvXPOKVP/5vi5Go0UjV/sM4pWVQ3eAbilZkpLrf/mDwFIKGaaGkSBB/bpnYzafDcC6pQyOwF2aNZSMGT6F8CLKGUXUVofzFJ5PScAIrSpB+6cu15lA3YCdUr7qjp4ZtHqOvpXQlDaXASeG1lJtVkvA08VqsPtUaue5iMQqEpVLplQNRu9TQhUp3q4qleVDDsIlGoVz7u9K6M2gxCUyg38vE9VXI54qlhhv3oV1C7kVypaAzqu/RZ5jkB1B2Fiuy0IQpVrYLr2WhgnVLsGxrbT/DgqX72Ob5/58SRQhTHtsiAtTQESGNsecxNIpAYd0w7z4zQVqDCmDd4LQjq9XFO+cySQ0sAuJaufQCCtjoXKNYWfSaz4JzvL1O8Tr6lBeKazPPWfUdLbYrXyrEogxZ7pyzIdLZIc5LqyXC+SJgJHlmMMQqLV/9i7DF3qNFV49ijDDgTSLXQV1/Vj0IQFPai4LXAkXP0XvYtqICQ9sGdROxHShtBVTL8PgibOyW7FjKVF6oPrKuRyleQJhxQxloAB7itic1rpw7WmxGs+JGoBFo/XQ8CErhbtSBETqPSOdh828BwSa3rnMGHQC+uRlsYIeEbFqQtW9DogUjBDYI44HXZQPoqzB94OT8c5xBD6ej3KAXbAsVqMAT96DLFCjGGYYqUYQ80zzDwDzLMQwTifocZ52jwv/OPhafN8Zp49EeP0wxtnuHmGmmeImmKFGMMxxZoxaidpsILqmx0xsr3wZuCZLOoRlngzzjaWuCVOvYUVvQyJhB0YESfblWADkasakaanZQPHPlnMRrM54DlVE6hMbDYbueYDRLCiBw7PMRaviiEVJcfM4jGmtvJgDVFyjPk+2EJh/hzZqQRLBD15bJb3DFs4Fs+ss4p5Vvrr7TTznG8MXS5ff8QUrJ+v0bKEyge982Xr4QzBq1nEeb03hF4VI3sSNYNnaJRP1AwaPugTZVmCFXzYNovaeCmIEaAjTrYG3gbu54WzyLWWmiBwcxZ9OX41QODd3vEadyDJC3zUlRXYcbcPiRPe7skKnZsgKRPPFz1ZwesJkiwVeLknK7z5CCEkyXu4eYFaVsKOK0GCpCSEEETgyTNqWUnHHgN4HypKfG5hqustlJV54Ml3k9BTTz351KHNrOz1GaesgFSQcPb0M0+fc2z2b8cAVlA4IDoKAABQMgCdASqgAKAAPm0ylUckIyIhJdR8MIANiWcNtmXA2QMXAslLIZfFP8x+jPyb/uH5Hddj6U9wOXJ0Z4qftD+d/rfml/tPBf4w6gXq7/VfMBxxwAPzX+m/7X7dvSp1LO5X/A9wD8ruN28v9gP+ef2f/kfcd8cX/X/mvyA9rn0Z/3/9L8BX8t/qf/I/vP5AfOB69v3A9kf9YjjDLVw4+uk7OJDfKbhLYXLQLn5CtE3wR5LVXDjyrawXxQ/qL//inQ6NHKn6mOMyUa5Sz35g9dAXwCE3MsHV4kcCE9JghXA8k8WomE13pMepgo2NEWS3nGkbJyuRq7agEa4eZ+urIGYkF67fyjdChyArATCRaK6pQxbMcyiJH5aAYMIQ8WT0xRMMOTgRTw2mwbw+PyhDjgfUqs3tZ14Z4rgEGRO0+sPVcRwN0F3VWT0QxkowD9kg8yT4vyIzJNqxWFSMyCf9GXsJo53eRWNKvZCl5f1b5Y0pIn7HJnkS7HBsnQFThZARBZ/5+ME2wwaaA/YtpzfajGOJgeen5umL/WaJZAAA/vz4QABy/GBstHpoPgGiHdf0EH3ONBz6b2GtkOVKGerJmyuLf4R5sDMU/3AIAMcvZwqIrCRpqRrS01vWO14B+Y1NryPedAFjM+7T/hjMa1l2Fzm+V73+Ia6o4AFoiDI/sep16iUzz2Yh+rQH5HO/8CxNGCmPdQdIpsPzNT0TkExPXIIzcRvG9cW7wLh0VC+9QJiEqHiZT2+YPj/a7Y91XtY8U9Z844gDPyTjYGyGe3lyTmc6TDSQ++Og8inNXutv8gLQvr/xCYevcOh9MfOPlNjjJ+8YCPKjUx92+Z2tviL6m+z7krxNLf0clfpz1aFUVVBFYRo0RJlfKED52QjLiKluCjeLoaJjyK8OzEUJzOunOnq9Z6frxexDTmc7gB30Qw92vGfT2TlPgChZ3rl4wZpFghdZvb2si/lAiHYrlKEpnvbNynjQkHQPHwFp57ouZTp14HVAfZ4n51PRXr5kczjwFw/yukW5wcX//iQ19dqu6nOX3vPEsopCLaIy3sV8kteay8eVGwi0qTi7bI21N77v730gE3tmbsUSvPwG1gJ0w/viUKJpK+uGAZIzDb7uz8J981ZdFyQY0LaZSq+pj17hy/ScBbVjrDmYTuoMvZrqBSwvMGPCWSvakGxZ3rU1+nYjL+L5vHCGyhI3msHVoVeHQwnZZkPg+W91CZm+rt9JjoUx1JWgJmMOjy77+LVrAQy4YFyemigyjRTeUduQv9u+sklnDYR3QVq6RP85BFp8CS69phuEQKGrADh1eFf6doHZVAO3NerNxEElK9akF0EbodFob2deQv68ggCNbPx+Foispfkzv1nPlk5ebHYMfOHcibPbsFWUNEFmn8qhNJ9T+xwrbokvJCJRbR747ubeg+Kf6gWup4ltFA6bySSwjpVjRCLVGlxFUKp+OK6wGY8mSN6//R5zfu4LjfTfI30cyjw+UomqOCxEkC1SuSkR5OSv8jcnvpTG7fWInOjZ2AxEyL6wZh6LGvG+W/5d7cCnLFhy1cf+TK1h5NfXgsW2SKUy73qZj8UHRf7f42f8UKHXHpUOf9gBL0TCJcQVEUT0CMlUF7OexxzLaikI2ZXdwY9PbEPwT1LzFHVsHFGPGIlqqo97MzxGddXyxGhBpANroX59MpdhYVxLIETvGSf6zIT5EpZVARotOEdcxpq47kwYvNWjw5yWfpLNC+/n1keB4zWaOYg/0nSU+JrmSAqUM6wtPapoUYrVA1MCn5949qb6yjNEIqyaDhxHHkiL+PMn8aUvXu0xhRr5T1/84wpC7DqrZogpIuE6Rzmb5eYzC7pLiCXwNOxZpamjUesd0vwYyChOkV+K8txtidgxlW+CEr8aEOnrX+I5B14pfPxE8+/FjXhfTuCzHrCH32JTUdK1JL8PYA6RWBhl5r9EhuN+azD6yW3WxPohkEhHIlMZ9lYAfl1xVSqAUQ1vIMGS2bDlXWUKU89YK8lafMiH4510GxdZ86JhpUjYTyqcVGskTQ1Du8lKUubnMwtzvnaaQjLDtmuC53K82OF+MUDvJNLuUBlNrAqszuIZoStBPcamDRE/p+x/Dlm242zMkkPp2h9taul7zz9xEu4dmDySJ1EL58kyVZOrMIxfxZnWvgU3cqHUPFPH/Hb8FHm3WkjGPtAKPZJJd8KNKs4rb0Cd3Cdq7KvTY6K7eoBYl0BUC8K2ybPzEtaB0RA4chKgkx430Fa2qSE8C56eMQVe4G+upkSOfMs+YWcNEwfnwBij7Lky4PsiSvT7Mdm9EJW+n+/dRy6uYHRtL4HVjuEqE5C6zlAazKschGevvvOt4R13pguANCqXtBxvNg49qUjCmw60wwmRdRSzoAq/tHBgS4yHy2P+OoCL2Hz+mGXhF4xj2ZdY9w2sOXCYiwvWhsCmgsB47tnu1VmZAWvqa3dJJ8iosFgrkE4fU4M/kdxH2FBqUObce4Gqw2x03qM8q56a83nYlWIU7iNdoEjmjgD8RG0wnZHyUAcO32FcHN9DecMNnR7fgkv0U12EeJgArGHQJ4GmlrRgP/+Wgw18Ox5y0zYP461iJJH4x/697EgWa/mvhiRR+Jdsg+zkC1bzwM5Zic1oQJcUenP2I7r63mOWwmM0jscJbFi+FfXQa29b+DbpRzR0sYRK50JoyjsTLzwvaI8MlbIFPSn+jnFt+FUrpZfle+l6u6Y0gNp4QAwfBBI4+GNbtxT68/T2Sd2R2Kjh27J+YJqMkLpt7kC3NLDQlc+w6KAezYxs/tYk+Udlcq8JsKTmqT2gD8pOT+O/Ipg/ndyBwff5LxyInvHp9QpEQcSdtc68GeUbVpy2B0blETjfg2fMKvr/1+n8468En9Ae6foLTGI7J1nCoDcPLJGdn7SNS9+g1/hEtNNMhd+o84TBykOovXFGV3Dj1oewzamSY8gaIHGglWGQNl41lATDIKlInYTI4AljdKyh/PgZ5ML4nBJ73OJNEV94Z8YHCnuqG5Eou7avGvRTpwx3OvY0dZfFCQQxAh6GVQvWC+g7zm6aG7PZtbLwn/PERNt/NccNLdEs/QDNv1+Y59JgYAtEk52AJvFbjoTuP67qp5cyoAeIyHMehXE/WDB4zLCo8rPLE3gWfwVkYUldk1uUUswD8Hqq6EpP0wwMsl8U66Pv8ThV8XX7UA3KYLSvpt9Jg52emuNZ0UXhQJO99w1/nFT3dT/nVPTYt34welLKyWKbPRsX4mNcYT6yowcEQnKEM5q9KQS8odY7YwFySeE99Nv//vmv/97pP/++Bc/9jL/f/w1z7wRzb91gPOG9TNxIiBcrbq09F50LDPdIqf9o5l0CDJIRyqsZO7+nh49ia6t3osGg+bmYD999DNu4qOkO6FRyKrUmWyIBHgu62RcMB6t+R+beGUTKk48mOz+j1BOkLUBmNWF6pySv9Vb/Gih4sLyBJ24mQ/V96o8s3OIG75QIAAAAAA==","pxKB":16.4},"我也要":{"slug":"我也要","cn":"我也要","roles":["doll"],"src":"果叽飞飞\\我也要.gif","frames":4,"frameMs":[60,60,60,60],"loopMs":240,"cols":6,"cell":160,"gap":4,"ground":152,"box":[0.0042,0.0458,0.9583,0.9667],"img":"s020.webp","b64p":"s021.webp","pxKB":26.7},"糖蛋来了":{"slug":"糖蛋来了","cn":"糖蛋来了","roles":["rare"],"src":"果叽飞飞\\糖蛋来了.gif","frames":6,"frameMs":[80,80,80,80,80,80],"loopMs":480,"cols":6,"cell":160,"gap":4,"ground":152,"box":[0.0292,0.0125,0.9667,0.9792],"img":"s022.webp","b64p":"s023.webp","pxKB":28.3},"guoji-16":{"slug":"guoji-16","cn":"黄色糖蛋","roles":["rare"],"src":"果叽糖蛋跳一跳\\13433998476577271.gif","frames":6,"frameMs":[80,80,80,80,80,80],"loopMs":480,"cols":6,"cell":160,"gap":4,"ground":152,"box":[0.0,0.0875,0.9875,0.9792],"img":"s024.webp","b64p":"s025.webp","pxKB":43.8}};
+var SLOTS = {"hero": ["抓娃娃"], "doll": ["guoji-4", "guoji-2", "guoji-5", "guoji-6", "guoji-7", "guoji-8", "guoji-11", "guoji-13", "我也要"], "rare": ["糖蛋来了", "guoji-16"]};
+var BRAND = {"name": "麦次元", "hint": "解锁更多可爱的果叽糖蛋", "ip": "果叽", "ipSub": "糖蛋表情包", "title": "果叽夹娃娃机"};
+var META = {"id": "claw", "title": "果叽夹娃娃机", "sub": "开着爪子对准果叽，抓起来的都是你的", "rules": [["👆", "按住左右拖动瞄准"], ["🎯", "对准果叽就按「抓」"], ["🧸", "抓出来的一只都跑不掉"]], "over": ["果叽抓了满满一兜！", "果叽抓得还不错", "果叽一只都没夹住…"], "engine": "canvas", "pick": false};</script>
+<script>/* ============================================================
+   果叽小游戏 · 共享运行时（由 build_game.py 注入，玩法模板不要改）
+   ------------------------------------------------------------
+   提供：素材解码 / 帧动画 / 画布自适应 / 界面切换 / 选角色 /
+        音效 / 最高分 / 主循环 / 验收调试桥
+   玩法模板只需在末尾调用一次：
+     GQ.boot({
+       id:'2048',                        // 唯一标识（最高分存档键用它）
+       init(GQ){},                       // 每局开始：搭场景（可返回一个 Promise）
+       update(dt){},                     // 逻辑（仅 state==='playing' 时被调）
+       draw(dt){},                       // 绘制（可选；DOM 玩法不实现）
+       probe(){ return {} },             // 给验收脚本读的自定义状态（可选）
+       forceFinish(){},                  // 立刻结束一局（验收用，可选）
+       autoPlay(ms){ return Promise }    // 自动玩 ms 毫秒（验收用，可选）
+     })
+   ============================================================ */
+(function () {
+  'use strict';
+
+  /* 兜底：prelude 没注入时也别整页崩掉（浏览器直接开模板时能看到提示） */
+  var MANIFEST = window.MANIFEST || {};
+  var SLOTS = window.SLOTS || {};
+  var BRAND = window.BRAND || { name: '麦次元', hint: '解锁更多可爱的果叽糖蛋', ip: '果叽', ipSub: '糖蛋表情包', title: '果叽小游戏' };
+  var META = window.META || { id: 'demo', title: '果叽小游戏', sub: '' };
+
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  function setText(sel, v) { var e = $(sel); if (e) e.textContent = String(v); }
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function rr(a, b) { return a + Math.random() * (b - a); }
+  function ri(a, b) { return Math.floor(a + Math.random() * (b - a + 1)); }
+  function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = ri(0, i), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+
+  /* ---------------- 音效：WebAudio 现场合成，零音频文件 ---------------- */
+  var AC = null;
+  function beep(freqs, dur, type, vol) {
+    try {
+      if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+      if (AC.state === 'suspended') AC.resume();
+      var t0 = AC.currentTime;
+      freqs.forEach(function (f, i) {
+        var o = AC.createOscillator(), g = AC.createGain();
+        o.type = type || 'sine'; o.frequency.value = f;
+        var s = t0 + i * dur * 0.62;
+        g.gain.setValueAtTime(0.0001, s);
+        g.gain.exponentialRampToValueAtTime(vol || 0.16, s + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001, s + dur);
+        o.connect(g); g.connect(AC.destination); o.start(s); o.stop(s + dur + 0.02);
+      });
+    } catch (e) { /* 静音环境（无用户手势 / 无音频设备）不该影响游戏 */ }
+  }
+  var SFX = {
+    tap: function () { beep([660, 880], 0.07) },
+    ok: function () { beep([720, 960], 0.10) },
+    pop: function () { beep([880, 1180], 0.07) },
+    combo: function () { beep([880, 1320, 1760], 0.09) },
+    bad: function () { beep([190, 110], 0.20, 'sawtooth') },
+    win: function () { beep([660, 880, 1100, 1320], 0.13) },
+    lose: function () { beep([520, 400, 300, 220], 0.17, 'triangle') }
+  };
+
+  /* ---------------- 画布 ---------------- */
+  var cv = $('#cv'), ctx = cv ? cv.getContext('2d') : null;
+  var W = 0, H = 0, DPR = 1, game = null;
+
+  function resize() {
+    if (cv) {
+      var r = cv.getBoundingClientRect();
+      DPR = Math.min(window.devicePixelRatio || 1, 3);
+      W = Math.max(1, Math.round(r.width));
+      H = Math.max(1, Math.round(r.height));
+      cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    } else {
+      W = window.innerWidth; H = window.innerHeight;
+    }
+    GQ.W = W; GQ.H = H; GQ.DPR = DPR;
+    GQ.viewW = window.innerWidth; GQ.viewH = window.innerHeight;
+    if (game && game.layout) game.layout();
+  }
+
+  /* ---------------- 素材 ---------------- */
+  var ASSETS = {};
+  /* ---------------- 素材地址 ----------------
+     素材不再内嵌进 HTML，改成独立文件（首屏不等素材，秒开 + 进度条）。
+     取素材的地址有多个候选，启动时用一张探针图同时探测，谁先回来用谁；
+     单个素材失败还会依次回退，最后一个是同域目录，保证一定玩得上。
+     实测：晚高峰 GitHub Pages 只有 43KB/s，jsDelivr 有 219KB/s；
+     凌晨两者都很快 —— 网络状况随时段剧变，所以不单押一个节点。
+     （jsDelivr 对 @main 分支缓存 7 天：素材若有改动，把目录升到下一版再改这里） */
+  var ASSET_BASES = [
+    'https://testingcf.jsdelivr.net/gh/xiaodaoguoguo/xdg@main/assets/jw/',
+    'https://gcore.jsdelivr.net/gh/xiaodaoguoguo/xdg@main/assets/jw/',
+    'https://cdn.jsdelivr.net/gh/xiaodaoguoguo/xdg@main/assets/jw/',
+    'assets/jw/'
+  ];
+  var ASSET_PROBE = 's002.webp';
+  var ASSET_BASE = ASSET_BASES[ASSET_BASES.length - 1];
+
+  /* 竞速选路：谁先成功返回探针就选谁；全失败则退回同域兜底 */
+  function pickAssetBase(cb) {
+    var n = ASSET_BASES.length, failed = 0, done = false;
+    function use(b) { if (done) return; done = true; ASSET_BASE = b; cb(b); }
+    ASSET_BASES.forEach(function (b) {
+      var im = new Image();
+      var to = setTimeout(function () { miss(); }, 9000);
+      function miss() {
+        clearTimeout(to); im.onload = im.onerror = null;
+        if (++failed === n) use(ASSET_BASES[n - 1]);
+      }
+      im.onload = function () { clearTimeout(to); use(b); };
+      im.onerror = miss;
+      im.src = b + ASSET_PROBE;
+    });
+  }
+
+  function loadAssets() {
+    var keys = Object.keys(MANIFEST);
+    var done = 0;
+    return new Promise(function (resolve) {
+      if (!keys.length) return resolve();
+      pickAssetBase(function () {
+      keys.forEach(function (k) {
+        var m = MANIFEST[k], rec = { meta: m, img: null, portrait: null, ready: false };
+        ASSETS[k] = rec;
+        var nmImg = m.img || m.b64s;
+        var nmPor = m.b64p || m.img || m.b64s;
+        var im = new Image();
+        /* 单帧素材的立绘与精灵表本来就是同一张图 —— 复用同一个对象，
+           省一次请求、一次解码、一份位图内存 */
+        var same = (nmPor === nmImg);
+        var po = same ? im : new Image();
+        var left = same ? 1 : 2;
+
+        function tick() {
+          if (--left) return;
+          rec.img = im; rec.portrait = po; rec.ready = true;
+          var bar = document.getElementById('loadBar');
+          if (bar) bar.style.width = Math.round(++done / keys.length * 100) + '%';
+          var lt = document.getElementById('loadTxt');
+          if (lt && done < keys.length) lt.textContent = '正在唤醒果叽… ' + done + '/' + keys.length;
+          if (done === keys.length) resolve();
+        }
+
+        /* 已是完整地址的内联小图（data URI）不再拼前缀，否则会被拼成
+           assets/xx/data:image/...;base64,... 而 404 */
+        function urlAt(i, name) {
+          return /^(data:|blob:|https?:|\/\/)/.test(name) ? name : ASSET_BASES[i] + name;
+        }
+        /* 先走选中的源，失败则依次回退后续候选，最后一个是同域（保证一定玩得上） */
+        function loadInto(img, name) {
+          if (!name) { tick(); return; }
+          var i = ASSET_BASES.indexOf(ASSET_BASE); if (i < 0) i = 0;
+          img.onload = tick;
+          img.onerror = function () {
+            if (++i < ASSET_BASES.length) img.src = urlAt(i, name);
+            else { tick(); }
+          };
+          img.src = urlAt(i, name);
+        }
+
+        loadInto(im, nmImg);
+        if (!same) loadInto(po, nmPor);
+      });
+      });
+    });
+  }
+
+  /* ---------------- 帧动画：时间 -> 帧号 ----------------
+     用精灵表而不是 <img src=gif>，才能按游戏自己的时钟控帧：
+     暂停 / 死亡定格 / 命中停顿都靠它。clock 冻结 = 画面定格。
+     ------------------------------------------------------- */
+  function frameAt(meta, ms) {
+    var d = meta.frameMs || [100], loop = meta.loopMs || d.reduce(function (a, b) { return a + b }, 0) || 1;
+    var t = ms % loop; if (t < 0) t += loop;
+    var acc = 0;
+    for (var i = 0; i < d.length; i++) { acc += d[i]; if (t < acc) return i; }
+    return d.length - 1;
+  }
+
+  /* 画一帧素材：h = 画面高（px），anchor = 'bottom'（脚底落在 y）| 'center' */
+  function drawFrame(slug, fi, x, y, h, opt) {
+    opt = opt || {};
+    var a = ASSETS[slug];
+    if (!a || !a.img || !ctx) return;
+    var m = a.meta, cell = m.cell || 256, cols = m.cols || 1, gap = m.gap || 0;
+    var n = m.frames || 1, s = h / cell;
+    var f = ((Math.round(fi) % n) + n) % n;
+    var sx = gap + (f % cols) * (cell + gap);
+    var sy = gap + Math.floor(f / cols) * (cell + gap);
+    var dw = cell * s, dh = cell * s;
+    var oy = opt.anchor === 'center' ? -dh / 2 : -(m.ground || cell * 0.95) * s;
+    ctx.save();
+    ctx.translate(x, y);
+    if (opt.rot) ctx.rotate(opt.rot);
+    if (opt.scaleY) ctx.scale(1, opt.scaleY);
+    if (opt.flip) ctx.scale(-1, 1);
+    if (opt.alpha != null) ctx.globalAlpha = opt.alpha;
+    ctx.drawImage(a.img, sx, sy, cell, cell, -dw / 2, oy, dw, dh);
+    ctx.restore();
+  }
+
+  /* ---------------- 品牌标识注入 ---------------- */
+  var MAG_SVG = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
+    '<circle cx="7" cy="7" r="4.7" fill="none" stroke="currentColor" stroke-width="2"/>' +
+    '<line x1="10.5" y1="10.5" x2="14.2" y2="14.2" stroke="currentColor" ' +
+    'stroke-width="2" stroke-linecap="round"/></svg>';
+  function injectBrand() {
+    $$('.brand .mag').forEach(function (e) { e.innerHTML = MAG_SVG });
+    $$('.brand .nm').forEach(function (e) { e.textContent = BRAND.name });
+    $$('.brand-tip').forEach(function (e) {
+      e.innerHTML = '微信搜索公众号 <b>' + BRAND.name + '</b>，' + BRAND.hint;
+    });
+    document.title = BRAND.title || META.title || document.title;
+  }
+  function ipBadge(el, slug) {
+    if (!el) return;
+    var a = ASSETS[slug]; if (!a) return;
+    el.innerHTML = '<img src="' + a.portrait.src + '" alt="' + BRAND.ip + '">' +
+      '<div style="display:flex;flex-direction:column;line-height:1.15">' +
+      '<span class="t">' + BRAND.ip + '</span><span class="s">' + BRAND.ipSub + '</span></div>';
+  }
+
+  /* ---------------- 界面层 ---------------- */
+  var SCREENS = [];
+  function collectScreens() { SCREENS = $$('.screen').map(function (e) { return e.id }) }
+  /* 界面层出现时，把 HUD / 棋盘一并收起来。
+     不只是好看：DOM 玩法里带 3D 变换的卡片会自成一个合成层，
+     在 Chromium 里能盖到更高 z-index 的界面层上面去 —— 收起来才彻底干净。 */
+  function show(id) {
+    SCREENS.forEach(function (s) { var e = $('#' + s); if (e) e.classList.toggle('hide', s !== id) });
+    $$('#hud, #combo, #stage, [data-hide-on-screen]').forEach(function (e) {
+      e.classList.toggle('hide', !!id);
+    });
+    GQ.screen = id || null;
+  }
+
+  /* ---------------- 选角色 ----------------
+     玩法在注册表里写了 "pick": false 时（只有一位主角的游戏），
+     整套选角色流程都跳过：加载完直接进开始页，主角恒为 hero 槽的第一位。 */
+  var PICK = META.pick !== false;
+  var picked = 0;
+  function heroKeys() {
+    var k = (SLOTS.hero && SLOTS.hero.length) ? SLOTS.hero.slice() : Object.keys(ASSETS);
+    return PICK ? k : k.slice(0, 1);
+  }
+  function heroSlug() { var k = heroKeys(); return k[Math.min(picked, k.length - 1)] || null }
+  function buildPick(onPick) {
+    var grid = $('#pickGrid'); if (!grid) return;
+    grid.innerHTML = '';
+    heroKeys().forEach(function (slug, i) {
+      var a = ASSETS[slug]; if (!a) return;
+      var d = document.createElement('div');
+      d.className = 'charcard' + (i === picked ? ' sel' : '');
+      d.dataset.slug = slug;
+      var img = document.createElement('img');
+      img.src = a.portrait.src; img.alt = a.meta.cn || slug;
+      var nm = document.createElement('div');
+      nm.className = 'nm'; nm.textContent = a.meta.cn || slug;
+      d.appendChild(img); d.appendChild(nm);
+      d.addEventListener('pointerdown', function () {
+        picked = i;
+        $$('.charcard', grid).forEach(function (e, j) { e.classList.toggle('sel', j === i) });
+        SFX.tap();
+        if (onPick) onPick(slug, i);
+      });
+      grid.appendChild(d);
+    });
+  }
+
+  /* ---------------- 最高分 ---------------- */
+  function bestKey() { return 'guoji_best_' + META.id }
+  function best() { try { return +(localStorage.getItem(bestKey()) || 0) } catch (e) { return 0 } }
+  function setBest(v) { try { localStorage.setItem(bestKey(), v) } catch (e) { } }
+
+  /* ---------------- 主循环 ---------------- */
+  var last = 0, errs = [];
+  function note(e) { var m = String(e && e.message || e); if (errs.indexOf(m) < 0 && errs.length < 12) errs.push(m) }
+  function loop(ts) {
+    requestAnimationFrame(loop);
+    if (!last) last = ts;
+    var dt = Math.min((ts - last) / 1000, 0.05); last = ts;
+    if (GQ.state === 'playing') {
+      GQ.t += dt;
+      if (!GQ.clockFrozen) GQ.clock += dt * 1000;
+      if (game && game.update) { try { game.update(dt) } catch (e) { note(e) } }
+    }
+    if (game && game.draw) { try { game.draw(dt) } catch (e) { note(e) } }
+  }
+
+  /* ---------------- 公开 API ---------------- */
+  var GQ = {
+    MANIFEST: MANIFEST, SLOTS: SLOTS, BRAND: BRAND, META: META,
+    cv: cv, ctx: ctx,
+    W: 0, H: 0, DPR: 1, viewW: 0, viewH: 0,
+    t: 0, clock: 0, clockFrozen: false,
+    state: 'load', screen: null, score: 0, ready: false,
+    frameAt: frameAt,
+    /* 通用小工具：玩法模板可以直接用，省得各自重写一遍 */
+    util: { $: $, $$: $$, setText: setText, clamp: clamp, rr: rr, ri: ri, shuffle: shuffle },
+    drawFrame: function (slug, fi, x, y, h, opt) { drawFrame(slug, fi, x, y, h, opt) },
+    img: function (slug) { var a = ASSETS[slug]; return a ? a.img : null },
+    portrait: function (slug) { var a = ASSETS[slug]; return a ? a.portrait : null },
+    meta: function (slug) { var a = ASSETS[slug]; return a ? a.meta : null },
+    slot: function (name) { return (SLOTS[name] || []).slice() },
+    slot1: function (name) { return (SLOTS[name] || [])[0] || null },
+    pool: function (list) {
+      return (list || []).filter(function (k) { return ASSETS[k] }).map(function (k) { return { slug: k, meta: ASSETS[k].meta } });
+    },
+    hero: heroSlug,
+    heroes: heroKeys,
+    picked: function () { return picked },
+    show: show, screens: function () { return SCREENS.slice() },
+    ipBadge: ipBadge,
+    SFX: SFX,
+    best: best, setBest: setBest,
+    syncHud: function () {
+      setText('#score', GQ.score);
+      setText('#best2', best());
+    },
+    /* ---- 验收调试桥 ---- */
+    probe: function () {
+      var d = {};
+      try { d = (game && game.probe) ? game.probe() : {} } catch (e) { d = { probeError: String(e && e.message) } }
+      return { state: GQ.state, score: GQ.score, clock: Math.round(GQ.clock), detail: d };
+    },
+    forceFinish: function () { try { return game && game.forceFinish ? game.forceFinish() : GQ.endGame({ score: GQ.score }) } catch (e) { note(e) } },
+    autoPlay: function (ms) { try { return (game && game.autoPlay) ? game.autoPlay(ms) : Promise.resolve(null) } catch (e) { note(e); return Promise.resolve(null) } },
+    errors: function () { return errs.slice() },
+
+    /* ---- 开局 / 收局 ---- */
+    startGame: function () {
+      GQ.score = 0; GQ.t = 0; GQ.clock = 0; GQ.clockFrozen = false;
+      GQ.state = 'playing';
+      show(null);
+      GQ.syncHud();
+      var r = game && game.init ? game.init(GQ) : null;
+      SFX.tap();
+      return r;
+    },
+    endGame: function (res) {
+      res = res || {};
+      GQ.state = 'over';
+      var sc = res.score != null ? res.score : GQ.score;
+      GQ.score = sc;
+      var b = best(), isNew = sc > b;
+      if (isNew) { b = sc; setBest(b) }
+      setText('#overScore', sc);
+      setText('#best2', b);
+      setText('#overTitle', res.title || '果叽玩累啦');
+      var st = $('#overStat');
+      if (st) {
+        var rows = (res.rows || []).concat([['历史最高', b]]);
+        st.innerHTML = rows.map(function (r) {
+          return '<div class="row"><span>' + r[0] + '</span><span>' + r[1] + '</span></div>';
+        }).join('');
+      }
+      var nb = $('#newBest'); if (nb) nb.classList.toggle('hide', !isNew);
+      var img = $('#overImg'); if (img) { var h = heroSlug(); if (ASSETS[h]) img.src = ASSETS[h].portrait.src; }
+      SFX.lose();
+      show('screen-over');
+    },
+
+    boot: function (g) {
+      game = g;
+      collectScreens();
+      injectBrand();
+      /* 玩法文案由注册表驱动：开始页三条说明 + 各界面副标题 */
+      var rl = $('#rules');
+      if (rl && META.rules && META.rules.length) {
+        rl.innerHTML = META.rules.map(function (r) {
+          return '<div class="rule"><em>' + r[0] + '</em>' + r[1] + '</div>';
+        }).join('');
+      }
+      if (META.sub) $$('.gsub').forEach(function (e) { e.textContent = META.sub });
+      show('screen-load');          // 开局先让 HUD / 棋盘收起来
+      resize();
+      window.addEventListener('resize', function () { resize() });
+      window.addEventListener('orientationchange', function () { setTimeout(resize, 260) });
+
+      var loadTxt = $('#loadTxt');
+      function refreshHero() {
+        var s = heroSlug(); if (!ASSETS[s]) return;
+        var hi = $('#heroImg'); if (hi) hi.src = ASSETS[s].portrait.src;
+        var lg = $('#loadLogo'); if (lg) lg.src = ASSETS[s].portrait.src;
+        ipBadge($('#pickIp'), s); ipBadge($('#startIp'), s);
+      }
+      loadAssets().then(function () {
+        var keys = Object.keys(ASSETS).filter(function (k) { return ASSETS[k].ready });
+        if (!keys.length) { if (loadTxt) loadTxt.textContent = '素材没加载出来，请重新生成游戏'; return }
+        var h = heroSlug() || keys[0];
+        var logo = $('#loadLogo'); if (logo) logo.src = ASSETS[h].portrait.src;
+        setText('#best2', best());
+        if (PICK) buildPick(refreshHero);
+        refreshHero();
+
+        GQ.ready = true;
+        if (loadTxt) loadTxt.textContent = '果叽准备好了！';
+        setTimeout(function () { show(PICK ? 'screen-pick' : 'screen-start') }, 320);
+      });
+
+      function on(id, fn) { var e = $('#' + id); if (e) e.addEventListener('click', fn) }
+      on('btnPickOk', function () { refreshHero(); show('screen-start'); SFX.tap() });
+      on('btnChange', function () { show(PICK ? 'screen-pick' : 'screen-start') });
+      on('btnStart', function () { GQ.startGame() });
+      on('btnAgain', function () { GQ.startGame() });
+      on('btnBack', function () { show(PICK ? 'screen-pick' : 'screen-start') });
+
+      requestAnimationFrame(loop);
+    }
+  };
+  window.GQ = GQ;
+})();
+</script>
+<script>
+/* ============================================================
+   玩法：果叽夹娃娃机
+   ------------------------------------------------------------
+   天车横梁上坐着一只果叽（选中的那只当操作员），爪子吊在它下面。
+   玩家左右拖动把爪子对准柜子里的果叽，按「抓」下爪。
+
+   核心手感 = 对准程度：
+     爪子中心与目标果叽中心的水平偏差 d（0 = 完全对中）
+       d < 0.50  → 稳稳抓住
+       d < 0.90  → 六成把握（会滑脱，果叽掉回堆里）
+       d ≥ 0.90  → 空手而归
+
+   难度递增不靠改版面，而是靠素材自己动起来：
+     柜子里的果叽一直在播自己的 GIF 帧动画，
+     抓得越多，它们左右晃得越厉害（0 → 7px），对准越来越难。
+   ============================================================ */
+(function () {
+  'use strict';
+  var U = GQ.util;
+  var ctx = GQ.ctx;
+
+  var COINS0   = 14;      /* 初始币 */
+  var DOLL_N   = 33;      /* 柜内果叽数量（抓走一只立刻补一只，永远不会空） */
+  var ROWS     = 3;       /* 堆几层。层数越多堆越高，但爪子能落的行程就越短 */
+  var RARE_P0  = 0.06;    /* 稀有款基础概率 */
+  var RARE_STEP= 0.015;   /* 每抓走一只 +1.5% */
+  var RARE_CAP = 0.25;
+  var WANDER_MAX = 7;     /* 摆动幅度上限（px） */
+
+  var TINT = ['#FFF1DC', '#FFE7EA', '#EAF4FF'];
+
+  var C = null, G = null;
+
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v) }
+  function rrect(x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  /* ---------------- 素材池 ---------------- */
+  function dollPool() {
+    var p = GQ.slot('doll');
+    if (p.length) return p;
+    p = GQ.slot('face');
+    return p.length ? p : GQ.heroes();
+  }
+  function rarePool() { return GQ.slot('rare') }
+
+  /* ---------------- 布局 ---------------- */
+  function layout() {
+    var W = GQ.W, H = GQ.H;
+    var padX   = clamp(W * 0.042, 12, 26);
+    var ctrlH  = clamp(H * 0.155, H < 560 ? 84 : 100, 150);
+    var bodyTop= clamp(H * 0.062, 44, 80);
+    var bodyBot= Math.max(bodyTop + 236, H - ctrlH);
+    var machineH = bodyBot - bodyTop;
+
+    /* ★ 机身不能无限拉宽。
+       桌面浏览器 / 代码预览面板是「宽而矮」的，照抄「吃满宽度」会把柜子
+       拉成一条又长又扁的横带：果叽缩成小点、左右各空一大片，观感直接崩。
+       所以给机身一个最大宽高比，超出去就整体居中留白 ——
+       等于「把一台手机游戏摆在桌面上」，比拉伸好看得多。
+       竖屏手机上 machineH * 1.6 远大于可用宽度，这条永远不会生效。 */
+    var maxBodyW = Math.max(230, machineH * 1.6);
+    var bodyW  = Math.min(W - padX * 2, maxBodyW);
+    var bodyX  = padX + (W - padX * 2 - bodyW) / 2;
+
+    var marqueeH = clamp(machineH * 0.085, 24, 42);
+    var trayH  = clamp(machineH * 0.150, 40, 74);
+    var trayY  = bodyBot - 8 - trayH;
+    var cabBottom = trayY - 7;
+
+    var cabX = bodyX + 9, cabW = bodyW - 18;
+
+    /* 柜高按机器高的 60% 定死，多出来的那块给「今日奖品展示台」——
+       真实娃娃机也有这一块。不定死的话，柜子会被拉得又高又空，
+       果叽堆缩在柜底一小坨（第一版就是这个毛病）。 */
+    var panelTop = bodyTop + marqueeH + 10;
+    var cabTop = cabBottom - clamp(machineH * 0.60, 220, 560);
+    var panel = null;
+    if (cabTop - 10 >= panelTop + 36) panel = { y: panelTop, h: cabTop - 10 - panelTop };
+    else cabTop = panelTop;                    /* 矮屏 / 横屏：不留展示台，柜子吃满 */
+    var cabH = Math.max(150, cabBottom - cabTop);
+
+    /* ★ 竖长屏铁律：果叽的尺寸从「竖直空间」反推，不是按宽度定死。
+       取「柜高的 17%」与「柜宽的 20.5%」里更小的那个，同时满足
+       ① 堆起来够高，不会缩在柜底一小坨 ② 一行至少放得下 5 只。 */
+    var dollH = clamp(Math.min(cabH * 0.17, cabW * 0.205), 32, 76);
+
+    G = {
+      padX: bodyX, bodyTop: bodyTop, bodyBot: bodyBot, bodyW: bodyW,
+      marqueeH: marqueeH, trayY: trayY, trayH: trayH, panel: panel,
+      cabX: cabX, cabW: cabW, cabY: cabTop, cabBottom: cabBottom, cabH: cabH,
+      railY: cabTop + clamp(cabH * 0.125, 24, 50),
+      floorY: cabBottom - 12,
+      dollH: dollH,
+      rowStep: dollH * 0.46,
+      clawH: clamp(cabW * 0.095, 20, 34),
+      exitW: clamp(cabW * 0.145, 36, 54)
+    };
+    /* 出货口贴紧左下角、尽量窄 —— 它占掉的横向空间，就是果叽堆能铺开的宽度 */
+    G.exitX = G.cabX + G.exitW * 0.5 + clamp(cabW * 0.030, 3, 10);
+    G.dollMinX = G.cabX + G.exitW + dollH * 0.44;
+    G.dollMaxX = G.cabX + cabW - dollH * 0.34;
+    if (G.dollMinX > G.dollMaxX - 8) G.dollMinX = G.cabX + dollH * 0.42;
+    /* ★ 爪子的活动范围要把「爪子张开时两条爪臂的跨度」算进去，
+       不然拖到最边上，爪子会甩到柜子外面去。 */
+    var reach = G.clawH * 1.06 + 6;
+    G.clawMinX = G.cabX + reach;
+    G.clawMaxX = G.cabX + cabW - reach;
+    /* 爪子待机高度：挂在轨下约柜高 16% 处，留出「下落行程」这一段空气（约柜高 24%） */
+    G.clawRestY = G.railY + clamp(cabH * 0.16, 40, 92);
+
+    /* 爪子的横向活动范围跟机身走；HUD 也跟着机身收窄，
+       不然宽屏上三颗药丸会被丢到屏幕最左最右，和居中的机器脱节。 */
+    var hud = document.getElementById('hud');
+    if (hud) { hud.style.left = bodyX + 'px'; hud.style.right = 'auto'; hud.style.width = bodyW + 'px' }
+
+    /* ★ 视口一变必须「重铺」，不能只「夹住」。
+       每只果叽的水平位置存成 0~1 的归一化坐标 nx，按当前柜宽重算；
+       y 也按新的行高重算。只 clamp 的话，开机那一下画布还窄
+       （代码预览面板、横屏切竖屏都会这样），22 只果叽会被整批夹进
+       左侧一小条里叠成一竖列 —— 就是那个「堆叠重叠」的成因。 */
+    if (C) {
+      C.dolls.forEach(function (d) {
+        d.h = dollSize(d.row, d.rare);
+        d.baseX = G.dollMinX + d.nx * (G.dollMaxX - G.dollMinX);
+        if (!d.falling) { d.y = rowY(d.row); d.x = d.baseX }
+      });
+      C.claw.x = clamp(C.claw.x, G.clawMinX, G.clawMaxX);
+      C.claw.target = clamp(C.claw.target, G.clawMinX, G.clawMaxX);
+      /* 闲着的时候按新的活动范围重新摆位；正在下落/归位就只夹住，别打断动画 */
+      if (C.claw.phase === 'idle' || C.claw.phase === 'close') {
+        C.claw.x = clawXOf(C.claw.nx);
+        C.claw.target = clawXOf(C.claw.nx);
+      }
+    }
+  }
+  function rowY(row) { return G.floorY - row * G.rowStep }
+  function dollSize(row, rare) { return G.dollH * (rare ? 1.06 : 1) * (1 - row * 0.045) }
+
+  /* 爪子的横向位置也存成 0~1（相对活动范围）。
+     跟果叽一样：视口一变按新宽度重算，否则拉宽窗口后爪子会留在最左边。 */
+  function clawXOf(nx) { return G.clawMinX + clamp(nx, 0, 1) * (G.clawMaxX - G.clawMinX) }
+  function clawNxOf(x) {
+    return clamp((x - G.clawMinX) / Math.max(1, G.clawMaxX - G.clawMinX), 0, 1);
+  }
+
+  /* 柜内果叽实际铺开的宽度 ÷ 柜内可摆放宽度（0~1）。
+     视口尺寸一变若忘了「重铺」，这个值会掉到接近 0（全部叠成一列）——
+     验收脚本就盯这个数，防止那个堆叠 bug 再回来。 */
+  function dollSpread() {
+    var lo = 1e9, hi = -1e9, n = 0;
+    C.dolls.forEach(function (d) {
+      if (d.caught || d.falling) return;
+      n++; if (d.baseX < lo) lo = d.baseX; if (d.baseX > hi) hi = d.baseX;
+    });
+    if (n < 2) return 1;
+    return (hi - lo) / Math.max(1, G.dollMaxX - G.dollMinX);
+  }
+
+  /* 货堆最高点（最上一层果叽的头顶）。爪子待机的爪尖必须低于它，
+     否则「下落行程」为负 —— 爪子一按就已经贴到果叽了，手感会莫名其妙。 */
+  function pileTop() {
+    var top = G.floorY;
+    C.dolls.forEach(function (d) {
+      if (d.caught || d.falling) return;      /* 补货中正在下落的算不上「堆顶」 */
+      var t = d.y - d.h * 0.95;
+      if (t < top) top = t;
+    });
+    return top;
+  }
+
+  /* ---------------- 柜内果叽 ---------------- */
+  function rareP() { return Math.min(RARE_CAP, RARE_P0 + (C ? C.caught : 0) * RARE_STEP) }
+  function wander() { return Math.min(WANDER_MAX, (C ? C.caught : 0) * 0.55) }
+
+  /* 果叽的水平位置一律存成 0~1 的归一化坐标 nx（相对柜内可摆放宽度），
+     baseX 由 nx 现算 —— 这样视口一变，整堆果叽会按新柜宽重新铺开，
+     而不是被 clamp 到边界上叠成一列。 */
+  function makeDoll(row, nx, y) {
+    var rp = rarePool(), fp = dollPool();
+    var rare = rp.length > 0 && Math.random() < rareP();
+    var pool = rare ? rp : fp;
+    var h = dollSize(row, rare);
+    var n = nx == null ? Math.random() : clamp(nx, 0, 1);
+    var bx = G.dollMinX + n * (G.dollMaxX - G.dollMinX);
+    return {
+      slug: pool[U.ri(0, pool.length - 1)],
+      row: row, rare: rare, h: h, caught: false, nx: n,
+      baseX: bx, x: bx,
+      y: y == null ? rowY(row) : y,
+      ph: Math.random() * 6.283,
+      spd: 0.55 + Math.random() * 0.55,
+      shake: 0
+    };
+  }
+
+  function fillCabinet() {
+    C.dolls = [];
+    /* 先均匀铺开再抖动，比纯随机更像「一堆」：
+       纯随机必然出现局部堆成一坨 + 旁边一个空洞。 */
+    for (var i = 0; i < DOLL_N; i++) {
+      var nx = (i + 0.5 + (Math.random() - 0.5) * 0.8) / DOLL_N;
+      C.dolls.push(makeDoll(i % ROWS, nx));
+    }
+  }
+
+  /* 抓走一只 → 从顶上掉一只新的下来，柜子永远是满的 */
+  function refill() {
+    var row = U.ri(0, ROWS - 1);
+    var d = makeDoll(row, null, G.cabY + G.dollH * 0.6);
+    d.falling = true;
+    d.vy = 0;
+    C.dolls.push(d);
+    return d;
+  }
+
+  /* ---------------- 一局开始 ---------------- */
+  function newGame() {
+    C = {
+      score: 0, coins: COINS0, caught: 0, rareCaught: 0, missed: 0, slipped: 0,
+      combo: 0, bestCombo: 0, t: 0,
+      claw: { nx: 0.5, x: (G.clawMinX + G.clawMaxX) / 2,
+              target: (G.clawMinX + G.clawMaxX) / 2,
+              y: G.clawRestY, open: 1, phase: 'idle', timer: 0, bob: 0 },
+      carry: null, fall: null, tray: [], pops: [], toast: null,
+      aimTarget: null, shake: 0, bgX: [0, 0, 0], over: false, amp: 0
+    };
+    GQ.score = 0;
+    fillCabinet();
+    syncHud();
+    var hp = document.getElementById('hint'); if (hp) hp.classList.remove('gone');
+  }
+
+  function syncHud() {
+    GQ.score = C.score;
+    U.setText('#score', C.score);
+    U.setText('#coins', C.coins);
+    U.setText('#caught', C.caught);
+    var cp = document.getElementById('coinPill');
+    if (cp) cp.classList.toggle('low', C.coins <= 3);
+    var gb = document.getElementById('btnGrab');
+    if (gb) gb.classList.toggle('busy', C.claw.phase !== 'idle' || C.coins <= 0);
+    var hp = document.getElementById('hint');
+    if (hp) hp.classList.toggle('gone', C.caught > 0 || C.t > 7);
+  }
+  function toast(txt) { C.toast = { txt: txt, t: 1.0 } }
+  function pop(x, y, txt, color) { C.pops.push({ x: x, y: y, txt: txt, c: color || '#E8963C', life: 0, max: 0.95 }) }
+
+  /* ---------------- 抓取判定 ---------------- */
+  /* 爪子垂线在 x 处、爪尖到 tipY 时，最先碰到的果叽（同一列里最靠上的那只） */
+  function targetAt(x) {
+    var best = null;
+    for (var i = 0; i < C.dolls.length; i++) {
+      var d = C.dolls[i];
+      if (d.caught || d.falling) continue;
+      if (Math.abs(x - d.x) > d.h * 0.44) continue;
+      if (!best || d.y < best.y) best = d;
+    }
+    return best;
+  }
+
+  function beginGrab() {
+    var cl = C.claw;
+    if (cl.phase !== 'idle' || C.coins <= 0) return;
+    C.coins--;
+    C.aimTarget = targetAt(cl.x);
+    cl.phase = 'down';
+    cl.open = 1;
+    syncHud();
+    GQ.SFX.tap();
+  }
+
+  /* ---------------- 逻辑 ---------------- */
+  function update(dt) {
+    if (!C || C.over) return;
+    C.t += dt;
+    for (var b = 0; b < 3; b++) C.bgX[b] += dt * (7 + b * 5);
+    if (C.shake > 0) C.shake = Math.max(0, C.shake - dt * 1.8);
+    if (C.toast) { C.toast.t -= dt; if (C.toast.t <= 0) C.toast = null }
+
+    var cl = C.claw, W = G.clawMaxX - G.clawMinX;
+
+    /* --- 飘分 --- */
+    for (var pi = C.pops.length - 1; pi >= 0; pi--) {
+      var q = C.pops[pi];
+      q.life += dt; q.y -= dt * 46;
+      if (q.life > q.max) C.pops.splice(pi, 1);
+    }
+
+    /* --- 柜里的果叽：播帧 + 摆动 + 补货下落 ---
+       摆动只在「待机瞄准」时进行；爪子一开始下落，果叽就被吓住不动了 ——
+       难度留在瞄准阶段，判定阶段必须是公平的（否则最后一刻飘走会让人恼火）。 */
+    var wantAmp = (cl.phase === 'idle' || cl.phase === 'close') ? wander() : 0;
+    C.amp += (wantAmp - C.amp) * Math.min(1, dt * 14);
+    var amp = C.amp;
+    for (var i = 0; i < C.dolls.length; i++) {
+      var d = C.dolls[i];
+      if (d.caught) continue;
+      if (d.falling) {
+        d.vy += 1500 * dt; d.y += d.vy * dt;
+        var land = rowY(d.row);
+        if (d.y >= land) { d.y = land; d.falling = false; d.vy = 0; d.squash = 1 }
+      }
+      if (d.shake > 0) d.shake = Math.max(0, d.shake - dt * 2.6);
+      if (d.squash > 0) d.squash = Math.max(0, d.squash - dt * 4.5);
+      d.x = clamp(d.baseX + Math.sin(C.t * d.spd + d.ph) * amp, G.dollMinX, G.dollMaxX);
+    }
+
+    /* --- 爪子：跟手（带一点阻尼，手感更软） --- */
+    if (cl.phase === 'idle' || cl.phase === 'close') {
+      cl.x += (cl.target - cl.x) * Math.min(1, dt * 20);
+    }
+    cl.bob = Math.sin(C.t * 2.4) * 1.6;
+
+    var tipY = function () { return cl.y + G.clawH * 1.15 };
+
+    switch (cl.phase) {
+      case 'idle':
+        cl.y = G.clawRestY + cl.bob;
+        cl.open = 1;
+        break;
+
+      case 'down': {
+        var v = 430;
+        cl.y += v * dt;
+        var tg = C.aimTarget;
+        var hitTop = tg && !tg.caught ? tg.y - tg.h * 0.90 : null;
+        var tip = tipY();
+        if (hitTop != null && tip >= hitTop + 2) {
+          cl.y = hitTop + 2 - G.clawH * 1.15;
+          cl.phase = 'close'; cl.timer = 0.26;
+        } else if (tip >= G.floorY) {
+          cl.y = G.floorY - G.clawH * 1.15;
+          cl.phase = 'close'; cl.timer = 0.26;
+        }
+        break;
+      }
+
+      case 'close': {
+        cl.timer -= dt;
+        var k = 1 - clamp(cl.timer / 0.26, 0, 1);
+        cl.open = 1 - k;
+        if (cl.timer <= 0) resolveGrab();
+        break;
+      }
+
+      case 'up': {
+        cl.y -= 620 * dt;
+        if (cl.y <= G.clawRestY) { cl.y = G.clawRestY; cl.phase = 'travel' }
+        if (C.carry) { C.carry.x = cl.x; C.carry.y = cl.y + G.clawH * 1.5 + C.carry.h * 0.5 }
+        break;
+      }
+
+      case 'travel': {
+        var dx = G.exitX - cl.x;
+        var step = 560 * dt;
+        if (Math.abs(dx) <= step) { cl.x = G.exitX; cl.phase = 'release'; cl.timer = 0.16 }
+        else cl.x += Math.sign(dx) * step;
+        if (C.carry) { C.carry.x = cl.x; C.carry.y = cl.y + G.clawH * 1.5 + C.carry.h * 0.5 }
+        break;
+      }
+
+      case 'release': {
+        cl.timer -= dt;
+        cl.open = clamp(1 - cl.timer / 0.16, 0, 1);
+        if (C.carry) {
+          C.carry.x = cl.x; C.carry.y = cl.y + G.clawH * 1.5 + C.carry.h * 0.5;
+          if (cl.timer <= 0) {
+            C.fall = { doll: C.carry, y: C.carry.y, vy: 60 };
+            C.carry = null;
+            cl.phase = 'settle'; cl.timer = 0.55;
+          }
+        } else if (cl.timer <= 0) { cl.phase = 'idle' }
+        break;
+      }
+
+      case 'settle':
+        cl.timer -= dt;
+        if (cl.timer <= 0) cl.phase = 'idle';
+        break;
+    }
+
+    /* --- 掉进出货口的果叽 --- */
+    if (C.fall) {
+      C.fall.vy += 1500 * dt;
+      C.fall.y += C.fall.vy * dt;
+      if (C.fall.y >= G.cabBottom + 10) {
+        var dd = C.fall.doll;
+        C.fall = null;
+        collect(dd);
+      }
+    }
+
+    /* --- 收工判定 --- */
+    if (C.coins <= 0 && cl.phase === 'idle' && !C.fall && !C.over) {
+      C.over = true;
+      setTimeout(finish, 260);
+    }
+  }
+
+  function resolveGrab() {
+    var cl = C.claw, tg = C.aimTarget;
+    if (!tg || tg.caught) {          /* 爪子底下没东西 */
+      C.missed++; C.combo = 0;
+      GQ.SFX.bad();
+      toast('空手而归…');
+      cl.phase = 'up';
+      syncHud();
+      return;
+    }
+    var d = Math.abs(cl.x - tg.x) / (tg.h * 0.5);
+    var p = d < 0.50 ? 1 : (d < 0.90 ? 0.60 : 0);
+    if (Math.random() < p) {
+      tg.caught = true;
+      C.carry = tg;
+      cl.phase = 'up';
+      GQ.SFX.ok();
+      C.shake = 0.18;
+    } else {
+      C.slipped++; C.combo = 0;
+      tg.shake = 1;
+      cl.phase = 'up';
+      GQ.SFX.bad();
+      toast(d < 0.9 ? '滑掉了！' : '差一点点…');
+      syncHud();
+    }
+  }
+
+  function collect(d) {
+    C.caught++;
+    if (d.rare) C.rareCaught++;
+    C.combo++;
+    if (C.combo > C.bestCombo) C.bestCombo = C.combo;
+    var mult = 1 + Math.min(2, Math.floor(C.combo / 2));
+    var pts = 20 * (d.rare ? 3 : 1) * mult;
+    C.score += pts;
+    C.tray.push({ slug: d.slug, rare: d.rare, at: C.t });
+    if (C.tray.length > 10) C.tray.shift();
+    pop(G.exitX + 26, G.trayY + 6, '+' + pts, d.rare ? '#E8963C' : '#5FA463');
+    if (d.rare) toast('稀有款！×3');
+    else if (C.combo >= 3) toast(C.combo + ' 连抓！');
+    GQ.SFX.combo();
+    /* 从柜里摘掉，补一只新的 */
+    var ix = C.dolls.indexOf(d);
+    if (ix >= 0) C.dolls.splice(ix, 1);
+    refill();
+    syncHud();
+  }
+
+  function finish() {
+    var ov = GQ.META.over || [];
+    var title = C.caught >= 9 ? (ov[0] || '果叽抓了满满一兜！')
+              : (C.caught >= 4 ? (ov[1] || '果叽抓得还不错') : (ov[2] || '果叽一只都没夹住…'));
+    GQ.endGame({
+      score: C.score, title: title,
+      rows: [['抓到的果叽', C.caught], ['稀有款', C.rareCaught],
+             ['最长连抓', C.bestCombo], ['空手次数', C.missed + C.slipped]]
+    });
+  }
+
+  /* ---------------- 绘制 ---------------- */
+  function drawDoll(d, alpha) {
+    var meta = GQ.meta(d.slug); if (!meta) return;
+    var fi = GQ.frameAt(meta, GQ.clock + d.ph * 640);
+    var h = d.h * (d.squash > 0 ? (1 - d.squash * 0.14) : 1);
+    var sx = d.x + (d.shake > 0 ? Math.sin(C.t * 46) * 5 * d.shake : 0);
+    var a = alpha == null ? 1 : alpha;
+
+    ctx.globalAlpha = a;
+    ctx.fillStyle = 'rgba(126,100,76,.13)';
+    ctx.beginPath(); ctx.ellipse(sx, d.y - 1, d.h * 0.35, d.h * 0.075, 0, 0, 7); ctx.fill();
+    if (d.rare) {
+      var pulse = 1 + Math.sin(C.t * 3.2 + d.ph) * 0.06;
+      var gg = ctx.createRadialGradient(sx, d.y - h * 0.45, 2, sx, d.y - h * 0.45, h * 0.74 * pulse);
+      gg.addColorStop(0, 'rgba(255,214,102,.78)');
+      gg.addColorStop(1, 'rgba(255,214,102,0)');
+      ctx.fillStyle = gg;
+      ctx.beginPath(); ctx.arc(sx, d.y - h * 0.45, h * 0.74 * pulse, 0, 7); ctx.fill();
+    }
+    GQ.drawFrame(d.slug, fi, sx, d.y, h, { anchor: 'bottom' });
+    ctx.globalAlpha = 1;
+  }
+
+  function drawMachine() {
+    var W = GQ.W;
+    /* 机身 */
+    rrect(G.padX, G.bodyTop, G.bodyW, G.bodyBot - G.bodyTop, 22);
+    ctx.fillStyle = '#FFF7EC'; ctx.fill();
+    ctx.strokeStyle = 'rgba(46,46,46,.10)'; ctx.lineWidth = 3; ctx.stroke();
+
+    /* 顶棚招牌 */
+    var mx = G.padX + 7, my = G.bodyTop + 7, mw = G.bodyW - 14, mh = G.marqueeH;
+    rrect(mx, my, mw, mh, 15);
+    var mg = ctx.createLinearGradient(0, my, 0, my + mh);
+    mg.addColorStop(0, '#FFD65E'); mg.addColorStop(1, '#F2A93B');
+    ctx.fillStyle = mg; ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.35)';
+    rrect(mx + 5, my + 4, mw - 10, mh * 0.36, 10); ctx.fill();
+
+    /* 招牌：果叽小徽 + 机器名，整组居中对齐 */
+    var hero = GQ.hero();
+    var hh = mh * 0.78;
+    ctx.save();
+    ctx.font = '900 ' + Math.round(Math.min(mh * 0.46, W * 0.042)) + 'px "PingFang SC",sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    var label = '果叽夹娃娃机';
+    var tw2 = ctx.measureText(label).width;
+    var gx = mx + (mw - (hh + 7 + tw2)) / 2;
+    if (hero) GQ.drawFrame(hero, GQ.frameAt(GQ.meta(hero), GQ.clock),
+                           gx + hh * 0.5, my + mh * 0.92, hh, { anchor: 'bottom' });
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = 'rgba(184,116,20,.42)'; ctx.lineWidth = 3;
+    ctx.strokeText(label, gx + hh + 7, my + mh * 0.54);
+    ctx.fillText(label, gx + hh + 7, my + mh * 0.54);
+    ctx.restore();
+  }
+
+  /* 奖品展示台：真实娃娃机在玻璃柜上方也有一块。
+     这里放三只「今日奖品」（取稀有款），既填掉了上方留白，
+     又提前告诉玩家「今天值钱的是什么」。 */
+  function drawPanel() {
+    var P = G.panel; if (!P) return;
+    var px = G.padX + 9, pw = G.cabW, py = P.y, ph = P.h;
+
+    rrect(px, py, pw, ph, 14);
+    var pg = ctx.createLinearGradient(0, py, 0, py + ph);
+    pg.addColorStop(0, '#FFF4E0'); pg.addColorStop(1, '#FFE7C4');
+    ctx.fillStyle = pg; ctx.fill();
+    ctx.strokeStyle = 'rgba(46,46,46,.10)'; ctx.lineWidth = 2.5; ctx.stroke();
+
+    /* ★ 先把「今日奖品」那条标题带整个让出来，奖品只在剩下的高度里排。
+       不预留的话，面板一被压扁，标题就会被奖品糊住 —— 这就是重叠的源头。 */
+    var labelH = clamp(ph * 0.26, 17, 30);
+    var shelfY = py + ph - 6;                    /* 台面贴着面板下沿 */
+    var sh = Math.max(16, (shelfY - (py + labelH)) * 1.02);
+
+    var seen = {}, cand = rarePool().concat(dollPool()), pool = [];
+    cand.forEach(function (s) { if (s && !seen[s]) { seen[s] = 1; pool.push(s) } });
+    var n = Math.max(1, Math.min(3, pool.length));
+    /* 等分列宽（不是「左右各留 10%」再除）—— 列宽相等，奖品间距才均匀 */
+    var colw = pw / n;
+
+    /* 灯带 */
+    for (var li = 0; li < n; li++) {
+      var lx = px + colw * (li + 0.5), ly = py + 6;
+      var lgr = ctx.createRadialGradient(lx, ly, 1, lx, ly, 20);
+      lgr.addColorStop(0, 'rgba(255,226,150,.9)');
+      lgr.addColorStop(1, 'rgba(255,226,150,0)');
+      ctx.fillStyle = lgr;
+      ctx.beginPath(); ctx.arc(lx, ly, 20, 0, 7); ctx.fill();
+    }
+
+    /* 聚光锥 */
+    for (var i = 0; i < n; i++) {
+      var cx = px + colw * (i + 0.5);
+      var top = py + labelH;
+      var sg = ctx.createLinearGradient(cx, top, cx, shelfY);
+      sg.addColorStop(0, 'rgba(255,214,120,.36)');
+      sg.addColorStop(1, 'rgba(255,214,120,0)');
+      ctx.fillStyle = sg;
+      ctx.beginPath();
+      ctx.moveTo(cx - colw * 0.13, top);
+      ctx.lineTo(cx + colw * 0.13, top);
+      ctx.lineTo(cx + colw * 0.40, shelfY);
+      ctx.lineTo(cx - colw * 0.40, shelfY);
+      ctx.closePath(); ctx.fill();
+    }
+
+    /* 台面 */
+    ctx.fillStyle = '#E7D3B4';
+    rrect(px + pw * 0.06, shelfY, pw * 0.88, 6, 3); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    rrect(px + pw * 0.06, shelfY, pw * 0.88, 2.5, 2); ctx.fill();
+
+    for (var j = 0; j < n; j++) {
+      var cx2 = px + colw * (j + 0.5);
+      var slug = pool[j % pool.length];
+      if (!GQ.meta(slug)) continue;
+      GQ.drawFrame(slug, GQ.frameAt(GQ.meta(slug), GQ.clock + j * 480),
+                   cx2, shelfY + 1, sh, { anchor: 'bottom' });
+    }
+
+    ctx.save();
+    ctx.font = '900 ' + Math.round(clamp(labelH * 0.52, 10, 14)) + 'px "PingFang SC",sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(178,146,100,.92)';
+    ctx.fillText('今日奖品', px + 12, py + labelH * 0.56);
+    ctx.restore();
+  }
+
+  function drawCabinet() {
+    /* 柜内背景 */
+    var g = ctx.createLinearGradient(0, G.cabY, 0, G.cabBottom);
+    g.addColorStop(0, '#F2FBFF'); g.addColorStop(0.6, '#FBFDFF'); g.addColorStop(1, '#F3F6FA');
+    rrect(G.cabX, G.cabY, G.cabW, G.cabBottom - G.cabY, 14);
+    ctx.fillStyle = g; ctx.fill();
+
+    /* 背板上的小圆点底纹 —— 让空柜也不空 */
+    ctx.fillStyle = 'rgba(206,224,236,.5)';
+    for (var y = G.cabY + 16; y < G.cabBottom - 8; y += 26) {
+      for (var x = G.cabX + 14 + ((y / 26) % 2) * 13; x < G.cabX + G.cabW - 8; x += 26) {
+        ctx.beginPath(); ctx.arc(x, y, 1.7, 0, 7); ctx.fill();
+      }
+    }
+
+    /* 柜顶：暖光带 + 一串三角彩旗 —— 把上方那片留白填掉，
+       但用「贴纸感」的轻元素，不抢果叽的视觉主角位置。 */
+    var topGlow = ctx.createLinearGradient(0, G.cabY, 0, G.cabY + 96);
+    topGlow.addColorStop(0, 'rgba(255,228,152,.32)');
+    topGlow.addColorStop(1, 'rgba(255,228,152,0)');
+    ctx.fillStyle = topGlow;
+    rrect(G.cabX, G.cabY, G.cabW, 96, 14); ctx.fill();
+
+    var FLAG = ['#FFC0CB', '#FFD873', '#A8DCEF', '#B6E3A8', '#F5A0A0', '#FFD873'];
+    var fn = 9, fx0 = G.cabX + 14, fx1 = G.cabX + G.cabW - 14, fy0 = G.cabY + 3, sag = 26;
+    var fyy = function (t) { return fy0 + sag * 4 * t * (1 - t) };
+    ctx.save();
+    ctx.strokeStyle = 'rgba(46,46,46,.16)'; ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    for (var s = 0; s <= 30; s++) {
+      var st = s / 30, sx = fx0 + (fx1 - fx0) * st;
+      if (s === 0) ctx.moveTo(sx, fyy(st)); else ctx.lineTo(sx, fyy(st));
+    }
+    ctx.stroke();
+    var fh = clamp(G.cabW * 0.038, 11, 17), fw = fh * 0.92;
+    for (var fi = 0; fi < fn; fi++) {
+      var ft = (fi + 0.5) / fn, fcx = fx0 + (fx1 - fx0) * ft, fcy = fyy(ft);
+      ctx.beginPath();
+      ctx.moveTo(fcx - fw / 2, fcy);
+      ctx.lineTo(fcx + fw / 2, fcy);
+      ctx.lineTo(fcx, fcy + fh);
+      ctx.closePath();
+      ctx.fillStyle = FLAG[fi % FLAG.length]; ctx.fill();
+      ctx.strokeStyle = 'rgba(46,46,46,.13)'; ctx.lineWidth = 1.2; ctx.stroke();
+    }
+    ctx.restore();
+
+    /* 柜底 */
+    ctx.fillStyle = '#EADCC8';
+    ctx.fillRect(G.cabX + 3, G.floorY, G.cabW - 6, G.cabBottom - G.floorY + 3);
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    ctx.fillRect(G.cabX + 3, G.floorY, G.cabW - 6, 3);
+
+    /* 出货口：真正「陷下去」的洞 —— 外圈暗边 + 深色底 + 后沿高光 */
+    var hx = G.exitX - G.exitW / 2, hy = G.floorY - 4, hb = G.cabBottom + 4;
+    ctx.fillStyle = 'rgba(120,96,72,.20)';
+    rrect(hx - 2.5, hy - 2.5, G.exitW + 5, hb - hy + 5, 11); ctx.fill();
+    rrect(hx, hy, G.exitW, hb - hy, 9);
+    var hg = ctx.createLinearGradient(0, hy, 0, hb);
+    hg.addColorStop(0, '#4A443C'); hg.addColorStop(0.45, '#2A2620'); hg.addColorStop(1, '#100E0C');
+    ctx.fillStyle = hg; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.20)'; ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(hx + 6, hy + 2.5); ctx.lineTo(hx + G.exitW - 6, hy + 2.5);
+    ctx.stroke();
+
+    /* 滑道区：洞口上方做一块浅色斜坡 + 「出口」小字。
+       不然左边那块空地看起来像「没做完」，而不是「出货用的」。 */
+    var slideH = G.exitW * 0.62;
+    var rg = ctx.createLinearGradient(0, G.floorY - slideH, 0, G.floorY);
+    rg.addColorStop(0, 'rgba(255,255,255,0)');
+    rg.addColorStop(1, 'rgba(222,200,170,.60)');
+    ctx.fillStyle = rg;
+    ctx.beginPath();
+    ctx.moveTo(hx - 5, G.floorY - slideH);
+    ctx.lineTo(hx + G.exitW + 5, G.floorY - slideH);
+    ctx.lineTo(hx + G.exitW, G.floorY);
+    ctx.lineTo(hx, G.floorY);
+    ctx.closePath(); ctx.fill();
+
+    ctx.save();
+    ctx.font = '900 10px "PingFang SC",sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(166,140,106,.9)';
+    ctx.fillText('出 口', G.exitX, G.floorY - slideH - 9);
+    ctx.restore();
+  }
+
+  function drawRailAndClaw() {
+    var cl = C.claw;
+    /* 轨道 */
+    var rz = 4;
+    rrect(G.cabX + 8, G.railY - rz, G.cabW - 16, rz * 2, rz);
+    ctx.fillStyle = '#C9BFB1'; ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.6)';
+    rrect(G.cabX + 8, G.railY - rz, G.cabW - 16, 2.5, 2); ctx.fill();
+
+    /* 天车 */
+    var tw = G.cabW * 0.20;
+    rrect(cl.x - tw / 2, G.railY - 9, tw, 16, 6);
+    ctx.fillStyle = '#B7ADA0'; ctx.fill();
+    ctx.strokeStyle = 'rgba(46,46,46,.18)'; ctx.lineWidth = 2; ctx.stroke();
+
+    /* 骑在横梁上的果叽（玩家的那只当操作员）。
+       让它「跨坐」在轨道上、脚落在轨道下方一点，而不是整只站在轨道上面 ——
+       这样尺寸能放大一截，又不会顶出柜顶去盖住「今日奖品」展示台。 */
+    var hero = GQ.hero();
+    if (hero) {
+      var perch = G.railY + G.clawH * 0.55;
+      var room = Math.max(16, (perch - G.cabY - 3) / 0.95);   /* 上方净空，硬上限 */
+      var hh = Math.min(clamp(G.cabW * 0.13, 30, 64), room);
+      GQ.drawFrame(hero, GQ.frameAt(GQ.meta(hero), GQ.clock),
+                   cl.x, perch, hh, { anchor: 'bottom' });
+    }
+
+    /* 吊绳 */
+    ctx.strokeStyle = '#9E9488'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(cl.x, G.railY + 6);
+    ctx.lineTo(cl.x, cl.y - G.clawH * 0.5);
+    ctx.stroke();
+
+    /* 瞄准辅助线 */
+    if (cl.phase === 'idle') {
+      ctx.save();
+      ctx.setLineDash([6, 7]);
+      ctx.strokeStyle = 'rgba(232,150,60,.30)'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cl.x, cl.y + G.clawH * 1.2);
+      ctx.lineTo(cl.x, G.floorY);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    /* 爪子 */
+    var spread = G.clawH * (0.20 + cl.open * 0.86);
+    var tip = cl.y + G.clawH * 1.15;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#8E8579'; ctx.lineWidth = Math.max(4, G.clawH * 0.19);
+    [-1, 0, 1].forEach(function (k) {
+      if (k === 0) return;
+      ctx.beginPath();
+      ctx.moveTo(cl.x + k * G.clawH * 0.12, cl.y);
+      ctx.quadraticCurveTo(cl.x + k * spread * 0.55, cl.y + G.clawH * 0.68, cl.x + k * spread, tip);
+      ctx.stroke();
+    });
+    ctx.beginPath();
+    ctx.moveTo(cl.x, cl.y);
+    ctx.lineTo(cl.x, tip - G.clawH * 0.18);
+    ctx.stroke();
+
+    /* 爪心连接块 */
+    rrect(cl.x - G.clawH * 0.34, cl.y - G.clawH * 0.62, G.clawH * 0.68, G.clawH * 0.78, 6);
+    ctx.fillStyle = '#CFC6BA'; ctx.fill();
+    ctx.strokeStyle = 'rgba(46,46,46,.22)'; ctx.lineWidth = 2; ctx.stroke();
+
+    /* 抓在手里的果叽 */
+    if (C.carry) {
+      ctx.fillStyle = 'rgba(126,100,76,.12)';
+      var cd = C.carry;
+      GQ.drawFrame(cd.slug, GQ.frameAt(GQ.meta(cd.slug), GQ.clock + cd.ph * 640),
+                   cd.x, cd.y, cd.h, { anchor: 'center' });
+    }
+    /* 正在掉进出货口的果叽 */
+    if (C.fall) {
+      var f = C.fall;
+      GQ.drawFrame(f.doll.slug, GQ.frameAt(GQ.meta(f.doll.slug), GQ.clock + f.doll.ph * 640),
+                   G.exitX, f.y + f.doll.h * 0.4, f.doll.h,
+                   { anchor: 'center', alpha: clamp(1 - Math.max(0, f.y - G.cabBottom) / 46, 0, 1) });
+    }
+  }
+
+  function drawTray() {
+    var tx = G.padX + 9, tw = G.bodyW - 18, th = G.trayH;
+    rrect(tx, G.trayY, tw, th, 12);
+    ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(46,46,46,.08)'; ctx.lineWidth = 2; ctx.stroke();
+
+    ctx.save();
+    ctx.font = '900 11px "PingFang SC",sans-serif';
+    ctx.fillStyle = '#B3A597'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    /* 标签宽度实测出来，果叽从标签右边再起排。
+       写死 inset 的话，窄屏上「已抓到」会被第一只果叽压住。 */
+    var lw = ctx.measureText('已抓到').width;
+    ctx.fillText('已抓到', tx + 10, G.trayY + th * 0.5);
+    ctx.restore();
+
+    var n = C.tray.length, show = Math.min(n, 8);
+    var hh = th * 0.62, cy = G.trayY + th * 0.52;
+    var x0 = tx + 10 + lw + 10, x1 = tx + tw - 10;
+    /* 8 个格子先各留出果叽自身宽度，再均分剩下的 —— 最后一只不会顶出托盘右边 */
+    var gap = Math.max(2, (x1 - x0 - hh) / 8);
+    for (var i = 0; i < show; i++) {
+      var t = C.tray[n - show + i];
+      GQ.drawFrame(t.slug, GQ.frameAt(GQ.meta(t.slug), GQ.clock), x0 + hh / 2 + gap * (i + 0.5),
+                   cy, hh, { anchor: 'center' });
+    }
+    if (n > 8) {
+      ctx.save();
+      ctx.font = '900 12px "PingFang SC",sans-serif';
+      ctx.fillStyle = '#B3A597'; ctx.textAlign = 'right';
+      ctx.fillText('+' + (n - 8), tx + tw - 9, G.trayY + th * 0.55);
+      ctx.restore();
+    }
+  }
+
+  function draw() {
+    if (!C || !G) return;
+    var W = GQ.W, H = GQ.H;
+    ctx.setTransform(GQ.DPR, 0, 0, GQ.DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    /* 背景 */
+    var sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#FFF4E8'); sky.addColorStop(0.5, '#FDF6EE'); sky.addColorStop(1, '#FBE8DF');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+    for (var b = 0; b < 3; b++) {
+      var cy = H * (0.18 + b * 0.27), cx = ((C.bgX[b] + b * W * 0.5) % (W + 170)) - 85;
+      ctx.fillStyle = 'rgba(245,195,59,' + (0.13 - b * 0.03) + ')';
+      ctx.beginPath(); ctx.arc(cx, cy, 44 - b * 7, 0, 7); ctx.fill();
+    }
+
+    ctx.save();
+    if (C.shake > 0) {
+      var s = C.shake * 10;
+      ctx.translate((Math.random() * 2 - 1) * s, (Math.random() * 2 - 1) * s);
+    }
+
+    drawMachine();
+    drawPanel();
+    drawCabinet();
+
+    /* 柜内果叽：后排先画，前排压在上面 —— 才像一堆 */
+    for (var row = ROWS - 1; row >= 0; row--) {
+      for (var i = 0; i < C.dolls.length; i++) {
+        var d = C.dolls[i];
+        if (d.caught || d.row !== row) continue;
+        if (d.falling) continue;
+        drawDoll(d);
+      }
+    }
+    /* 补货掉落的果叽画在最上面，落下来时能被看见 */
+    for (var j = 0; j < C.dolls.length; j++) {
+      var fd = C.dolls[j];
+      if (fd.falling && !fd.caught) drawDoll(fd);
+    }
+
+    drawRailAndClaw();
+
+    /* 玻璃罩：淡光 + 两道高光斜条 */
+    rrect(G.cabX, G.cabY, G.cabW, G.cabBottom - G.cabY, 14);
+    ctx.fillStyle = 'rgba(180,222,244,.13)'; ctx.fill();
+    ctx.save();
+    ctx.clip();
+    ctx.fillStyle = 'rgba(255,255,255,.30)';
+    ctx.beginPath();
+    ctx.moveTo(G.cabX + G.cabW * 0.06, G.cabBottom);
+    ctx.lineTo(G.cabX + G.cabW * 0.26, G.cabY);
+    ctx.lineTo(G.cabX + G.cabW * 0.36, G.cabY);
+    ctx.lineTo(G.cabX + G.cabW * 0.16, G.cabBottom);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.16)';
+    ctx.fillRect(G.cabX + G.cabW * 0.62, G.cabY, G.cabW * 0.07, G.cabBottom - G.cabY);
+    ctx.restore();
+
+    /* 柜框 */
+    rrect(G.cabX, G.cabY, G.cabW, G.cabBottom - G.cabY, 14);
+    ctx.strokeStyle = 'rgba(46,46,46,.16)'; ctx.lineWidth = 3.5; ctx.stroke();
+
+    drawTray();
+
+    /* 飘分 */
+    ctx.save();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    C.pops.forEach(function (q) {
+      ctx.globalAlpha = 1 - q.life / q.max;
+      ctx.font = '900 ' + Math.round(Math.min(GQ.W * 0.052, 24)) + 'px "PingFang SC",sans-serif';
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 5;
+      ctx.strokeText(q.txt, q.x, q.y);
+      ctx.fillStyle = q.c; ctx.fillText(q.txt, q.x, q.y);
+    });
+    ctx.globalAlpha = 1;
+
+    /* 连抓徽章：贴在柜子右上角（不再用大字，否则和中间那行 toast 撞成两句一样的话） */
+    if (C.combo >= 3) {
+      var cw = Math.max(62, G.cabW * 0.20), ch = 22;
+      var cxx = G.cabX + G.cabW - cw - 9, cyy = G.cabY + 9;
+      rrect(cxx, cyy, cw, ch, 11);
+      ctx.fillStyle = 'rgba(232,150,60,.94)'; ctx.fill();
+      ctx.font = '900 12px "PingFang SC",sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff';
+      ctx.fillText('×' + C.combo + ' 连抓', cxx + cw / 2, cyy + ch / 2 + 0.5);
+    }
+    /* toast */
+    if (C.toast) {
+      ctx.globalAlpha = Math.min(1, C.toast.t * 1.8);
+      ctx.font = '900 ' + Math.round(Math.min(GQ.W * 0.072, 30)) + 'px "PingFang SC",sans-serif';
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 7;
+      ctx.strokeText(C.toast.txt, GQ.W / 2, G.cabY + (G.cabBottom - G.cabY) * 0.46);
+      ctx.fillStyle = '#E8963C';
+      ctx.fillText(C.toast.txt, GQ.W / 2, G.cabY + (G.cabBottom - G.cabY) * 0.46);
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+    ctx.restore();
+  }
+
+  /* ---------------- 输入 ---------------- */
+  function bind() {
+    var cv = GQ.cv;
+    function moveTo(clientX) {
+      if (GQ.state !== 'playing' || !C) return;
+      if (C.claw.phase !== 'idle') return;
+      var r = cv.getBoundingClientRect();
+      C.claw.nx = clawNxOf(clientX - r.left);
+      C.claw.target = clawXOf(C.claw.nx);
+    }
+    cv.addEventListener('pointerdown', function (e) { e.preventDefault(); moveTo(e.clientX) }, { passive: false });
+    cv.addEventListener('pointermove', function (e) { e.preventDefault(); moveTo(e.clientX) }, { passive: false });
+    window.addEventListener('keydown', function (e) {
+      if (!C || GQ.state !== 'playing') return;
+      if (e.key === 'ArrowLeft') { C.claw.nx = clamp(C.claw.nx - 0.045, 0, 1); C.claw.target = clawXOf(C.claw.nx) }
+      if (e.key === 'ArrowRight') { C.claw.nx = clamp(C.claw.nx + 0.045, 0, 1); C.claw.target = clawXOf(C.claw.nx) }
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); beginGrab() }
+    });
+    var gb = document.getElementById('btnGrab');
+    if (gb) gb.addEventListener('pointerdown', function (e) { e.preventDefault(); beginGrab() }, { passive: false });
+  }
+
+  GQ.boot({
+    id: 'claw',
+    layout: layout,
+
+    init: function () {
+      if (!G) layout();
+      newGame();
+      var av = document.getElementById('hudAv');
+      if (av) av.src = (GQ.portrait(GQ.hero()) || {}).src || '';
+      return null;
+    },
+
+    update: update,
+    draw: draw,
+
+    probe: function () {
+      return {
+        score: C.score, coins: C.coins, caught: C.caught, rare: C.rareCaught,
+        missed: C.missed, slipped: C.slipped, combo: C.combo, bestCombo: C.bestCombo,
+        phase: C.claw.phase, dolls: C.dolls.length,
+        tray: C.tray.length, wander: Math.round(wander() * 10) / 10,
+        clawX: Math.round(C.claw.x), clawY: Math.round(C.claw.y),
+        /* 布局自检：spread = 果叽堆实际铺开宽度 / 柜内可摆放宽度。
+           视口一变忘了重铺的话它会掉到接近 0（叠成一列）。 */
+        spread: Math.round(dollSpread() * 100) / 100,
+        geo: { W: Math.round(GQ.W), H: Math.round(GQ.H),
+               bodyW: Math.round(G.bodyW), bodyX: Math.round(G.padX),
+               bodyTop: Math.round(G.bodyTop),
+               cabY: Math.round(G.cabY), cabH: Math.round(G.cabH), dollH: Math.round(G.dollH),
+               trayY: Math.round(G.trayY), trayH: Math.round(G.trayH),
+               panel: !!G.panel,
+               /* 爪子待机的爪尖高度、货堆最高点、托盘底 —— 验收靠这三个数判断
+                  「爪子有没有下落空间」「元素有没有互相压住」。 */
+               clawRest: Math.round(G.clawRestY), clawH: Math.round(G.clawH),
+               pileTop: Math.round(pileTop()), floorY: Math.round(G.floorY) }
+      };
+    },
+
+    forceFinish: finish,
+
+    /* 验收用：瞄准柜里最靠上的那只 → 等爪子到位 → 按「抓」（派发真实 pointer 事件） */
+    autoPlay: function (ms) {
+      return new Promise(function (resolve) {
+        var t0 = Date.now(), aiming = false, aimUntil = 0;
+        function done() {
+          return { score: C.score, coins: C.coins, caught: C.caught, rare: C.rareCaught,
+                   missed: C.missed, slipped: C.slipped };
+        }
+        function tick() {
+          if (Date.now() - t0 > ms || GQ.state !== 'playing' || !C) return resolve(done());
+          var cv = GQ.cv;
+          if (C.claw.phase === 'idle' && C.coins > 0) {
+            if (!aiming) {
+              var list = C.dolls.filter(function (d) { return !d.caught && !d.falling });
+              list.sort(function (a, b) { return a.y - b.y });
+              var tg = list[0];
+              if (tg) {
+                var r = cv.getBoundingClientRect();
+                cv.dispatchEvent(new PointerEvent('pointermove',
+                  { clientX: r.left + tg.x, clientY: r.top + r.height * 0.5, bubbles: true }));
+                aiming = true; aimUntil = Date.now() + 420;
+              }
+            } else if (Date.now() >= aimUntil) {
+              aiming = false;
+              var gb = document.getElementById('btnGrab');
+              if (gb) gb.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+            }
+          }
+          setTimeout(tick, 90);
+        }
+        tick();
+      });
+    }
+  });
+  bind();
+})();
+</script>
+</body>
+</html>
