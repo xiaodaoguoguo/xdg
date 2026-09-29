@@ -149,6 +149,7 @@
   window.addEventListener('pagehide', leave);
 })();
 </script>
+<script defer src="assets/guoji-rank.js"></script>
 </head>
 <body>
 <canvas id="cv"></canvas>
@@ -589,6 +590,7 @@ function resize() {
 function startRun() {
   G.state = 'IDLE';
   G.score = 0; G.combo = 0; G.bestCombo = 0; G.perfectCnt = 0;
+  if (window.GQ && GQ.rank) GQ.rank.begin();
   G.record = false;
   document.getElementById('sticker').classList.remove('on');
   G.particles = []; G.floats = [];
@@ -644,6 +646,7 @@ function syncScreens() {
 function showOver() {
   G.state = 'GAMEOVER';
   G.runCount++; saveRuns();
+  if (window.GQ && GQ.rank) GQ.rank.finish({ game: 'tiaoyitiao', score: G.score, reason: 'dead' });
   var isRec = G.score > G.best;
   if (isRec) { G.best = G.score; saveBest(); Sound.record(); }
   document.getElementById('finalScore').textContent = String(G.score);
@@ -1097,11 +1100,13 @@ document.addEventListener('visibilitychange', function () {
 });
 
 function togglePause() {
-  if (G.state === 'PAUSED') { G.state = G._prevState || 'IDLE'; syncScreens(); }
+  if (G.state === 'PAUSED') { G.state = G._prevState || 'IDLE'; if (window.GQ && GQ.rank) GQ.rank.free(); syncScreens(); }
   else if (G.state === 'IDLE' || G.state === 'CHARGING') {
     if (G.state === 'CHARGING') { Sound.chargeStop(); }
     G._prevState = G.state;
-    G.state = 'PAUSED'; activePointer = null; syncScreens();
+    G.state = 'PAUSED'; activePointer = null;
+    if (window.GQ && GQ.rank) GQ.rank.hold();
+    syncScreens();
   }
 }
 

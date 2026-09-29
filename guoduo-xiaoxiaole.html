@@ -486,6 +486,7 @@ body::before{
   window.addEventListener('pagehide', leave);
 })();
 </script>
+<script defer src="assets/guoji-rank.js"></script>
 </head>
 <body>
 
@@ -1219,6 +1220,7 @@ function closeOverlay() {
 }
 
 function showWin() {
+  if (window.GQ && GQ.rank) GQ.rank.finish({ game: 'xiaoxiaole', score: G.score, reason: 'clear', lv: G.level });
   const star = G.dock.length <= 2 ? '⭐⭐⭐' : G.dock.length <= 4 ? '⭐⭐' : '⭐';
   openOverlay(`
     <div class="hero" style="background-image:url('${urlOf('heart')}')"></div>
@@ -1246,6 +1248,7 @@ function showWin() {
 }
 
 function showLose() {
+  if (window.GQ && GQ.rank) GQ.rank.finish({ game: 'xiaoxiaole', score: G.score, reason: 'fail', lv: G.level });
   const remain = G.tiles.filter(t => !t.removed).length;
   openOverlay(`
     <div class="hero" style="background-image:url('${urlOf('anger')}')"></div>
@@ -1337,6 +1340,7 @@ function startLevel(n) {
   G.score = 0;
   G.total = G.tiles.length;
   G.cleared = 0;
+  if (window.GQ && GQ.rank) GQ.rank.begin();
   G.maxLayer = G.tiles.reduce((m, t) => Math.max(m, t.layer), 0);
   G.busy = false;
   G.lockInput = false;

@@ -271,6 +271,7 @@ svg{display:block}
   window.addEventListener('pagehide', leave);
 })();
 </script>
+<script defer src="assets/guoji-rank.js"></script>
 </head>
 <body>
 
@@ -512,6 +513,7 @@ function flap(){
     case 'READY':
       G.state = 'PLAYING';
       G.vy = JUMP_V;
+      if (window.GQ && GQ.rank) GQ.rank.begin();
       break;
     case 'PLAYING':
       G.vy = JUMP_V;
@@ -523,6 +525,7 @@ function flap(){
       reset();
       G.state = 'PLAYING';
       G.vy = JUMP_V;
+      if (window.GQ && GQ.rank) GQ.rank.begin();
       break;
   }
   syncHint();
@@ -587,6 +590,7 @@ function checkCollision(){
 
 function die(hitGround){
   if (G.state === 'OVER' || G.state === 'DYING') return;
+  if (window.GQ && GQ.rank) GQ.rank.finish({ game: 'feifei', score: G.score, reason: 'dead' });
   G.newRecord = G.score > G.best;
   if (G.newRecord){ G.best = G.score; saveBest(G.best); }
   G.state = 'DYING';

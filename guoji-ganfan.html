@@ -149,6 +149,7 @@
   window.addEventListener('pagehide', leave);
 })();
 </script>
+<script defer src="assets/guoji-rank.js"></script>
 </head>
 <body>
 <div id="app">
@@ -444,12 +445,13 @@ function reset(){
   buildBag(); syncHUD();
 }
 function hideScreens(){ scMenu.classList.add('hide'); scPause.classList.add('hide'); scOver.classList.add('hide'); }
-function startGame(){ reset(); hideScreens(); G.state='play'; G.lastTs=0; audio(); sfx.click(); }
+function startGame(){ reset(); hideScreens(); G.state='play'; G.lastTs=0; audio(); sfx.click(); if (window.GQ && GQ.rank) GQ.rank.begin(); }
 function toMenu(){ G.state='menu'; hideScreens(); show(scMenu,null); syncHUD(); }
-function pause(){ if (G.state!=='play') return; G.state='pause'; show(scPause,null); $('pScore').textContent=G.score; $('pCombo').textContent='x'+mult(); sfx.click(); }
-function resume(){ if (G.state!=='pause') return; G.state='play'; show(null,scPause); G.lastTs=0; sfx.click(); }
+function pause(){ if (G.state!=='play') return; G.state='pause'; if (window.GQ && GQ.rank) GQ.rank.hold(); show(scPause,null); $('pScore').textContent=G.score; $('pCombo').textContent='x'+mult(); sfx.click(); }
+function resume(){ if (G.state!=='pause') return; G.state='play'; if (window.GQ && GQ.rank) GQ.rank.free(); show(null,scPause); G.lastTs=0; sfx.click(); }
 function gameOver(){
   G.state='over'; sfx.over();
+  if (window.GQ && GQ.rank) GQ.rank.finish({ game: 'ganfan', score: G.score, reason: 'dead' });
   const isNew = G.score > (G.best||0);
   if (isNew){ G.best = G.score; try{ localStorage.setItem('guoji_ganfan_best', String(G.best)); }catch(e){} }
   $('oScore').textContent = G.score; $('oBest').textContent = G.best;

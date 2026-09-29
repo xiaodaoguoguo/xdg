@@ -146,6 +146,7 @@
   window.addEventListener('pagehide', leave);
 })();
 </script>
+<script defer src="assets/guoji-rank.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -260,6 +261,8 @@
       <span class="go">开始 →</span>
     </a>
 
+    <div id="guojiBoard" style="margin-top:22px"></div>
+
   </main>
 
   <footer>
@@ -313,6 +316,12 @@
     }
   });
 })();
+</script>
+<script>
+window.addEventListener('load', function () {
+  var el = document.getElementById('guojiBoard');
+  if (el && window.GQ && GQ.rank) GQ.rank.board(el);
+});
 </script>
 </body>
 </html>

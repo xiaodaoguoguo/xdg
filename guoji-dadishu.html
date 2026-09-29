@@ -525,6 +525,7 @@ svg{display:block}
   window.addEventListener('pagehide', leave);
 })();
 </script>
+<script defer src="assets/guoji-rank.js"></script>
 </head>
 <body>
 
@@ -1158,6 +1159,7 @@ function startGame(){
   SFX.init();
   G.state = 'playing';
   G.t = 0; G.score = 0; G.combo = 0; G.maxCombo = 0;
+  if (window.GQ && GQ.rank) GQ.rank.begin();
   G.hits = 0; G.misses = 0; G.goldHits = 0; G.bombHits = 0; G.emptyClicks = 0;
   G.lives = 3; G.scoreMul = 1; G.spawnTimer = .5;
   Bag.reset();
@@ -1236,6 +1238,12 @@ function endGame(){
              : G.score >= 650  ? 'B · 稳扎稳打' : G.score >= 350 ? 'C · 还需练习' : 'D · 先熟悉节奏';
   $('#rRank').textContent = '评级 ' + rank;
 
+  if (window.GQ && GQ.rank) GQ.rank.finish({
+    game: 'dadishu',
+    score: G.score,
+    reason: G.mode === 'survival' ? 'dead' : 'timeup'
+  });
+
   show('#ovEnd');
   syncHUD();
 }
@@ -1243,10 +1251,12 @@ function endGame(){
 function pauseGame(on){
   if (on && G.state === 'playing'){
     G.state = 'paused';
+    if (window.GQ && GQ.rank) GQ.rank.hold();
     $('#btnPause').textContent = '继续';
     toast('已暂停');
   } else if (!on && G.state === 'paused'){
     G.state = 'playing';
+    if (window.GQ && GQ.rank) GQ.rank.free();
     lastTs = performance.now();
     $('#btnPause').textContent = '暂停';
     toast('继续游戏');
